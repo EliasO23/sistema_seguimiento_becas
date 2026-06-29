@@ -1,0 +1,367 @@
+"""Componentes reutilizables: Cards KPI, badges de riesgo, etc."""
+
+from __future__ import annotations
+
+import customtkinter as ctk
+from tkinter import ttk
+
+from config import COLORS, FONTS
+
+
+class KPICard(ctk.CTkFrame):
+    """Tarjeta de indicador clave de rendimiento."""
+
+    def __init__(
+        self,
+        master,
+        title: str,
+        value: str,
+        subtitle: str = "",
+        icon: str = "",
+        accent_color: str = COLORS["primary"],
+        **kwargs,
+    ) -> None:
+        super().__init__(
+            master,
+            fg_color=COLORS["bg_card"],
+            corner_radius=12,
+            border_width=1,
+            border_color=COLORS["border"],
+            **kwargs,
+        )
+        self._accent_color = accent_color
+        self._content = None
+        self._icon_label = None
+        self._subtitle_label = None
+        self._build(title, value, subtitle, icon, accent_color)
+
+    def _build(self, title, value, subtitle, icon, accent):
+        # Barra de acento superior
+        self._accent_bar = ctk.CTkFrame(self, height=4, fg_color=accent, corner_radius=0)
+        self._accent_bar.pack(fill="x", side="top")
+
+        self._content = ctk.CTkFrame(self, fg_color="transparent")
+        self._content.pack(fill="both", expand=True, padx=16, pady=12)
+
+        # Icono + título
+        header = ctk.CTkFrame(self._content, fg_color="transparent")
+        header.pack(fill="x")
+        if icon:
+            self._icon_label = ctk.CTkLabel(
+                header, text=icon, font=("Segoe UI Emoji", 20),
+                text_color=accent,
+            )
+            self._icon_label.pack(side="left", padx=(0, 8))
+        self._title_label = ctk.CTkLabel(
+            header, text=title, font=FONTS["body_sm"],
+            text_color=COLORS["text_secondary"],
+        )
+        self._title_label.pack(side="left")
+
+        # Valor principal
+        self._value_label = ctk.CTkLabel(
+            self._content, text=value,
+            font=FONTS["heading_lg"],
+            text_color=COLORS["text_primary"],
+        )
+        self._value_label.pack(anchor="w", pady=(6, 0))
+
+        # Subtítulo
+        if subtitle:
+            self._subtitle_label = ctk.CTkLabel(
+                self._content, text=subtitle,
+                font=FONTS["caption"],
+                text_color=COLORS["text_light"],
+            )
+            self._subtitle_label.pack(anchor="w")
+
+    def update_value(self, new_value: str) -> None:
+        self._value_label.configure(text=new_value)
+
+    def update_card(
+        self,
+        title: str,
+        value: str,
+        subtitle: str = "",
+        icon: str = "",
+        accent_color: str | None = None,
+    ) -> None:
+        self._title_label.configure(text=title)
+        self._value_label.configure(text=value)
+
+        if self._subtitle_label is not None:
+            self._subtitle_label.configure(text=subtitle)
+            if subtitle:
+                self._subtitle_label.pack(anchor="w")
+            else:
+                self._subtitle_label.pack_forget()
+        elif subtitle:
+            self._subtitle_label = ctk.CTkLabel(
+                self._content,
+                text=subtitle,
+                font=FONTS["caption"],
+                text_color=COLORS["text_light"],
+            )
+            self._subtitle_label.pack(anchor="w")
+
+        if self._icon_label is not None:
+            self._icon_label.configure(text=icon)
+            if icon:
+                self._icon_label.pack(side="left", padx=(0, 8))
+            else:
+                self._icon_label.pack_forget()
+        elif icon:
+            self._icon_label = ctk.CTkLabel(
+                self._content.winfo_children()[0],
+                text=icon,
+                font=("Segoe UI Emoji", 20),
+                text_color=accent_color or self._accent_color,
+            )
+            self._icon_label.pack(side="left", padx=(0, 8))
+
+        if accent_color:
+            self._accent_color = accent_color
+            self._accent_bar.configure(fg_color=accent_color)
+            if self._icon_label is not None:
+                self._icon_label.configure(text_color=accent_color)
+
+
+class RiskBadge(ctk.CTkLabel):
+    """Badge visual de nivel de riesgo."""
+
+    COLORS_MAP = {
+        "Bajo": ("#D1FAE5", "#065F46"),
+        "Medio": ("#FEF3C7", "#92400E"),
+        "Alto": ("#FEE2E2", "#991B1B"),
+    }
+    EMOJI = {"Bajo": "🟢", "Medio": "🟡", "Alto": "🔴"}
+
+    def __init__(self, master, nivel: str = "Bajo", **kwargs) -> None:
+        bg, fg = self.COLORS_MAP.get(nivel, ("#F1F5F9", "#475569"))
+        emoji = self.EMOJI.get(nivel, "⚪")
+        super().__init__(
+            master,
+            text=f"{emoji} {nivel}",
+            font=FONTS["body_sm"],
+            fg_color=bg,
+            text_color=fg,
+            corner_radius=20,
+            padx=10,
+            pady=2,
+            **kwargs,
+        )
+
+
+class SectionHeader(ctk.CTkFrame):
+    """Cabecera de sección con título y separador."""
+
+    def __init__(self, master, title: str, subtitle: str = "", centered: bool = False, **kwargs) -> None:
+        super().__init__(master, fg_color="transparent", **kwargs)
+        anchor = "center" if centered else "w"
+        justify = "center" if centered else "left"
+
+        ctk.CTkLabel(
+            self,
+            text=title,
+            font=FONTS["heading_md"],
+            text_color=COLORS["text_primary"],
+            justify=justify,
+        ).pack(anchor=anchor)
+        if subtitle:
+            ctk.CTkLabel(
+                self,
+                text=subtitle,
+                font=FONTS["body_sm"],
+                text_color=COLORS["text_secondary"],
+                justify=justify,
+            ).pack(anchor=anchor)
+        ctk.CTkFrame(self, height=2, fg_color=COLORS["border"]).pack(
+            fill="x", pady=(8, 0)
+        )
+
+
+class SearchBar(ctk.CTkFrame):
+    """Barra de búsqueda con icono."""
+
+    def __init__(self, master, placeholder: str = "Buscar...", command=None, **kwargs) -> None:
+        super().__init__(master, fg_color="transparent", **kwargs)
+        self._cmd = command
+
+        inner = ctk.CTkFrame(
+            self,
+            fg_color=COLORS["bg_card"],
+            border_width=1,
+            border_color=COLORS["border"],
+            corner_radius=8,
+        )
+        inner.pack(fill="x")
+
+        ctk.CTkLabel(inner, text="🔍", font=("Segoe UI Emoji", 14)).pack(
+            side="left", padx=(12, 4)
+        )
+        self._entry = ctk.CTkEntry(
+            inner,
+            placeholder_text=placeholder,
+            border_width=0,
+            fg_color="transparent",
+            font=FONTS["body"],
+            height=36,
+        )
+        self._entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
+        self._entry.bind("<KeyRelease>", self._on_change)
+
+    def _on_change(self, _event=None) -> None:
+        if self._cmd:
+            self._cmd(self._entry.get())
+
+    def get(self) -> str:
+        return self._entry.get()
+
+    def clear(self) -> None:
+        self._entry.delete(0, "end")
+
+
+class ActionButton(ctk.CTkButton):
+    """Botón de acción con estilos predefinidos."""
+
+    STYLES = {
+        "primary": {"fg_color": COLORS["primary"], "hover_color": COLORS["primary_dark"], "text_color": "white"},
+        "success": {"fg_color": COLORS["success"], "hover_color": "#059669", "text_color": "white"},
+        "danger": {"fg_color": COLORS["danger"], "hover_color": "#DC2626", "text_color": "white"},
+        "secondary": {"fg_color": COLORS["border"], "hover_color": "#CBD5E1", "text_color": COLORS["text_primary"]},
+        "ghost": {"fg_color": "transparent", "hover_color": COLORS["bg_main"], "text_color": COLORS["primary"]},
+        "ghost_light": {"fg_color": "transparent", "hover_color": "gray", "text_color": "white"},
+    }
+
+    def __init__(self, master, text: str, style: str = "primary", **kwargs) -> None:
+        style_cfg = self.STYLES.get(style, self.STYLES["primary"])
+        super().__init__(
+            master,
+            text=text,
+            corner_radius=8,
+            height=36,
+            font=FONTS["body_sm"],
+            border_width=0,
+            **style_cfg,
+            **kwargs,
+        )
+
+
+class DataTable(ctk.CTkFrame):
+    """Tabla de datos con scroll basada en Treeview."""
+
+    def __init__(self, master, columns: list[str], **kwargs) -> None:
+        super().__init__(master, fg_color=COLORS["bg_card"], **kwargs)
+        self._columns = columns
+        self._rows: list[list[str]] = []
+        self._on_select = None
+        self._total_rows = 0
+        self._rendered_rows = 0
+        self._tree = None
+        self._build_header()
+
+    def _build_header(self) -> None:
+        container = ctk.CTkFrame(self, fg_color=COLORS["bg_card"])
+        container.pack(fill="both", expand=True)
+
+        style = ttk.Style()
+        try:
+            style.theme_use("clam")
+        except Exception:
+            pass
+        style.configure(
+            "Table.Treeview",
+            background=COLORS["bg_card"],
+            fieldbackground=COLORS["bg_card"],
+            foreground=COLORS["text_primary"],
+            rowheight=48,
+            borderwidth=0,
+            font=FONTS["body_sm"],
+        )
+        style.configure(
+            "Table.Treeview.Heading",
+            background=COLORS["primary"],
+            foreground="white",
+            font=FONTS["heading_sm"],
+            relief="flat",
+            padding=10,
+            borderwidth=0,
+        )
+        style.map(
+            "Table.Treeview",
+            background=[("selected", COLORS["primary_light"])],
+            foreground=[("selected", COLORS["text_primary"])],
+        )
+
+        table_frame = ctk.CTkFrame(container, fg_color="transparent")
+        table_frame.pack(fill="both", expand=True, padx=1, pady=1)
+
+        self._tree = ttk.Treeview(
+            table_frame,
+            columns=self._columns,
+            show="headings",
+            style="Table.Treeview",
+            selectmode="browse",
+        )
+        y_scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self._tree.yview)
+        x_scroll = ttk.Scrollbar(table_frame, orient="horizontal", command=self._tree.xview)
+        self._tree.configure(yscrollcommand=y_scroll.set, xscrollcommand=x_scroll.set)
+
+        for i, col in enumerate(self._columns):
+            self._tree.heading(col, text=col)
+            width = max(110, min(180, len(col) * 12))
+            self._tree.column(col, width=width, anchor="w", stretch=True)
+
+        self._tree.tag_configure("odd", background=COLORS["bg_card"])
+        self._tree.tag_configure("even", background=COLORS["bg_main"])
+        self._tree.bind("<<TreeviewSelect>>", self._handle_tree_select)
+
+        self._tree.grid(row=0, column=0, sticky="nsew")
+        y_scroll.grid(row=0, column=1, sticky="ns")
+        x_scroll.grid(row=1, column=0, sticky="ew")
+        table_frame.grid_rowconfigure(0, weight=1)
+        table_frame.grid_columnconfigure(0, weight=1)
+
+    def load_data(self, rows: list[list[str]], on_select=None, max_rows: int | None = None) -> None:
+        """Carga filas en la tabla."""
+        self._on_select = on_select
+        self._total_rows = len(rows)
+        self._rows = [list(map(lambda c: str(c or ""), row)) for row in rows]
+
+        if not self._tree:
+            return
+
+        for item in self._tree.get_children():
+            self._tree.delete(item)
+
+        for row_idx, row_data in enumerate(self._rows):
+            tag = "even" if row_idx % 2 else "odd"
+            self._tree.insert("", "end", iid=str(row_idx), values=row_data, tags=(tag,))
+
+        self._rendered_rows = len(self._rows)
+
+    @property
+    def total_rows(self) -> int:
+        return self._total_rows
+
+    @property
+    def rendered_rows(self) -> int:
+        return self._rendered_rows
+
+    def _handle_tree_select(self, _event=None) -> None:
+        if not self._tree or not self._on_select:
+            return
+        selected = self._tree.selection()
+        if not selected:
+            return
+        iid = selected[0]
+        try:
+            row_idx = int(iid)
+            row_data = self._rows[row_idx]
+        except (ValueError, IndexError):
+            return
+        self._on_select(row_idx, row_data)
+
+    def _handle_click(self, row_idx: int, row_data: list) -> None:
+        if self._on_select:
+            self._on_select(row_idx, row_data)

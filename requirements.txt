@@ -1,0 +1,8 @@
+customtkinter>=5.2.0
+ttkbootstrap>=1.10.1
+openpyxl>=3.1.2
+pandas>=2.1.0
+numpy>=1.26.0
+matplotlib>=3.8.0
+reportlab>=4.0.4
+Pillow>=10.0.0
