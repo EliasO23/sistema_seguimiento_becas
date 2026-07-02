@@ -1,6 +1,6 @@
 # 🎓 Sistema Inteligente de Seguimiento para Estudiantes Becados
 
-Sistema de escritorio desarrollado completamente en Python que automatiza el seguimiento de estudiantes becados universitarios, transformando datos en indicadores accionables.
+Sistema de escritorio desarrollado en Python que automatiza el seguimiento de estudiantes becados universitarios mediante un Excel como base de datos y una UI moderna con CustomTkinter.
 
 ---
 
@@ -8,121 +8,117 @@ Sistema de escritorio desarrollado completamente en Python que automatiza el seg
 
 | Módulo | Descripción |
 |--------|-------------|
-| 🏠 **Dashboard** | KPIs en tiempo real, gráficos integrados, alertas automáticas |
-| 👥 **Estudiantes** | CRUD completo, búsqueda, filtros, foto de perfil |
-| 📋 **Seguimiento** | Registro de conversaciones, compromisos y próximas citas |
-| ✅ **Asistencia** | Control diario, estadísticas, días consecutivos ausente |
-| 🤝 **Voluntariado** | Registro de horas, cumplimiento de meta (40h) |
-| 📊 **Reportes** | PDF profesionales, export a Excel y CSV |
-| 🔴 **Riesgo** | Algoritmo automático con 4 indicadores ponderados |
-| 👁 **Perfil** | Ficha completa con gráfico radar y asistencia mensual |
+| 🏠 **Dashboard** | KPIs globales, gráficos de riesgo y resumen de desempeño |
+| 👥 **Estudiantes** | Gestión completa de estudiantes con búsqueda, filtros y perfil |
+| 📋 **Seguimiento** | Registro de contactos, acciones realizadas y próximas citas |
+| ✅ **Asistencia** | Control diario de asistencias con estadísticas y alertas |
+| 📈 **Rendimiento** | Monitoreo de promedios, materias aprobadas y en riesgo |
+| 🤝 **Voluntariado** | Registro de horas, actividades y estado de cumplimiento |
+| 📊 **Reportes** | Generación de PDF profesional y exportación de datos |
+| ⚙️ **Configuración** | Parámetros del sistema y constantes editables |
 
 ---
 
 ## 🛠 Tecnologías
 
 - **Python 3.12+**
-- **CustomTkinter** — Interfaz moderna estilo Notion/PowerBI
-- **Pandas + NumPy** — Análisis de datos
-- **OpenPyXL** — Gestión del Excel como base de datos
-- **Matplotlib** — Gráficos integrados (no ventanas externas)
-- **ReportLab** — Generación de PDFs profesionales
+- **CustomTkinter** — Interfaz de escritorio moderna
+- **Pandas + NumPy** — Manipulación de datos
+- **OpenPyXL** — Lectura/escritura del archivo Excel
+- **Matplotlib** — Gráficos embebidos en la aplicación
+- **ReportLab** — Generación de reportes PDF
+- **Pillow** — Soporte para imágenes de estudiantes
+- **ttkbootstrap** — Estilos adicionales para la UI
 
 ---
 
 ## 🚀 Instalación y ejecución
 
-### 1. Clonar o descomprimir el proyecto
+### 1. Abrir el proyecto
 
-```bash
-cd SistemaBecas
+```powershell
+cd c:\Users\danie\OneDrive\Desktop\sistema_seguimiento_becas
 ```
 
 ### 2. Crear entorno virtual (recomendado)
 
-```bash
+```powershell
 python -m venv .venv
-
-# Windows
 .venv\Scripts\activate
-
-# Linux / Mac
-source .venv/bin/activate
 ```
 
 ### 3. Instalar dependencias
 
-```bash
+```powershell
 pip install -r requirements.txt
 ```
 
-### 4. Ejecutar
+### 4. Ejecutar la aplicación
 
-```bash
+```powershell
 python main.py
 ```
 
-Al iniciar por primera vez, el sistema generará automáticamente **100 estudiantes de prueba** con asistencias, seguimientos, voluntariado y rendimiento académico.
+> Al iniciar por primera vez, el sistema verifica el archivo `data/becados.xlsx`. Si está vacío o no existe, genera automáticamente datos de prueba para 100 estudiantes.
 
 ---
 
 ## 📁 Estructura del proyecto
 
 ```
-SistemaBecas/
-├── main.py                  # Punto de entrada con splash screen
-├── config.py                # Configuración global y constantes
+├── main.py
+├── config.py
 ├── requirements.txt
 ├── README.md
-│
+├── assets/
 ├── data/
-│   ├── becados.xlsx         # Base de datos Excel (auto-generada)
-│   ├── backups/             # Copias de seguridad automáticas
-│   └── generar_datos.py     # Generador de datos de prueba
-│
-├── services/                # Capa de negocio (sin acceso directo a UI)
-│   ├── excel_manager.py     # Único punto de acceso al Excel
+│   ├── carreras_universidades.py
+│   ├── generar_datos.py
+│   ├── plantillas/
+│   ├── backups/
+│   └── becados.xlsx
+├── exports/
+├── images/
+├── reports/
+├── services/
+│   ├── excel_manager.py
 │   ├── estudiantes.py
 │   ├── asistencia.py
-│   ├── voluntariado.py
 │   ├── seguimiento.py
+│   ├── voluntariado.py
 │   ├── rendimiento.py
-│   ├── indicadores.py       # Algoritmo de riesgo
-│   └── reportes.py          # Generación PDF
-│
-├── ui/                      # Capa de presentación
-│   ├── app.py               # Ventana principal
-│   ├── menu.py              # Sidebar de navegación
+│   ├── indicadores.py
+│   └── reportes.py
+├── ui/
+│   ├── app.py
+│   ├── menu.py
 │   ├── dashboard.py
 │   ├── estudiantes.py
 │   ├── seguimiento.py
 │   ├── asistencia.py
+│   ├── rendimiento.py
 │   ├── voluntariado.py
-│   ├── perfil.py            # Ficha completa del estudiante
+│   ├── perfil.py
 │   ├── reportes_view.py
 │   ├── config_view.py
 │   └── components/
-│       └── cards.py         # Componentes reutilizables
-│
-├── utils/
-│   └── logger.py
-│
-├── reports/                 # PDFs generados
-└── exports/                 # CSV/Excel exportados
+│       └── cards.py
+└── utils/
+    └── logger.py
 ```
 
 ---
 
-## 📊 Algoritmo de Riesgo
+## 📊 Algoritmo de riesgo
 
-El sistema calcula automáticamente un **índice de riesgo** para cada estudiante combinando 4 dimensiones:
+El sistema calcula un índice de riesgo compuesto a partir de cuatro componentes:
 
-| Dimensión | Peso | Descripción |
-|-----------|------|-------------|
+| Dimensión | Peso | Qué mide |
+|-----------|------|----------|
 | Asistencia | 40% | Porcentaje de días asistidos |
-| Promedio académico | 30% | Calificación sobre 10 |
-| Voluntariado | 20% | Horas completadas / 40h meta |
-| Seguimiento | 10% | Tiempo desde el último contacto |
+| Promedio académico | 30% | Nota promedio sobre 10 |
+| Voluntariado | 20% | Horas acumuladas frente a la meta |
+| Seguimiento | 10% | Días desde el último contacto |
 
 **Clasificación:**
 - 🟢 **Bajo** — Índice ≤ 40%
@@ -131,43 +127,43 @@ El sistema calcula automáticamente un **índice de riesgo** para cada estudiant
 
 ---
 
-## 🗄 Estructura del Excel (becados.xlsx)
+## 🗄 Estructura del Excel (`data/becados.xlsx`)
 
-El archivo funciona como base de datos con 6 hojas:
+El archivo funciona como base de datos con las siguientes hojas:
 
 1. **Estudiantes** — Datos personales y académicos
 2. **Asistencias** — Registro diario de asistencia
-3. **Voluntariado** — Actividades y horas
-4. **Seguimientos** — Historial de conversaciones del monitor
-5. **Rendimiento** — Promedios y materias por ciclo
-6. **Configuracion** — Parámetros del sistema
+3. **Voluntariado** — Actividades, horas y observaciones
+4. **Seguimientos** — Historial de monitoreo y compromisos
+5. **Rendimiento** — Promedios, materias aprobadas/reprobadas y riesgo
+6. **Configuracion** — Parámetros de negocio y ajustes del sistema
 
 ---
 
 ## 📄 Reportes disponibles
 
-- **Reporte individual**: Perfil completo con indicadores, alertas y recomendaciones automáticas
-- **Reporte general**: Consolidado de todos los estudiantes con KPIs globales
-- **Reporte de riesgo**: Solo estudiantes en riesgo medio/alto
+- **Reporte individual**: PDF completo por estudiante
+- **Reporte general**: Resumen global de todos los estudiantes
+- **Reporte de riesgo**: Lista de estudiantes en riesgo medio o alto
 
 ---
 
 ## 🔒 Buenas prácticas implementadas
 
-- Arquitectura en capas (UI ↔ Services ↔ Excel)
-- Principios SOLID
-- Type Hints completos
-- Logging de eventos y errores
-- Backups automáticos antes de escrituras críticas
-- Caché de lectura para rendimiento
-- Threading para operaciones pesadas (UI no se congela)
-- Validaciones robustas en cada servicio
+- Arquitectura en capas: UI ↔ Services ↔ Excel
+- Código con **type hints** y separación de responsabilidades
+- Logging de eventos y errores en `sistema_becas.log`
+- Backups automáticos antes de escrituras en Excel
+- Caché de lectura para mejorar rendimiento
+- Operaciones de inicialización en hilo para no bloquear la UI
+- Validaciones y manejo de errores para Excel en uso
 
 ---
 
-## 📝 Notas de uso
+## 📝 Notas adicionales
 
-- El archivo `becados.xlsx` se genera automáticamente en `data/`.
-- Los reportes PDF se guardan en `reports/`.
+- `data/becados.xlsx` se crea y mantiene automáticamente.
+- Los reportes PDF se generan en `reports/`.
 - Las exportaciones se guardan en `exports/`.
-- Los logs se guardan en `sistema_becas.log`.
+- El archivo de configuración global es `config.py`.
+- El generador de prueba se encuentra en `data/generar_datos.py`.
