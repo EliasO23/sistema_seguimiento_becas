@@ -10,7 +10,7 @@ import customtkinter as ctk
 from config import COLORS, FONTS, UNIVERSIDADES, CARRERAS, ESTADOS_ESTUDIANTE
 from services.estudiantes import Estudiante
 from ui.components.cards import (
-    SectionHeader, SearchBar, ActionButton, DataTable, RiskBadge
+    SectionHeader, SearchBar, ActionButton, DataTable, RiskBadge, KPICard
 )
 
 if TYPE_CHECKING:
@@ -52,6 +52,42 @@ class EstudiantesView(ctk.CTkFrame):
         # Contenido
         content = ctk.CTkFrame(self, fg_color=COLORS["bg_main"])
         content.pack(fill="both", expand=True, padx=20, pady=16)
+
+        stats = ctk.CTkFrame(content, fg_color="transparent")
+        stats.pack(fill="x", pady=(0, 14))
+        stats.grid_columnconfigure(0, weight=1)
+        stats.grid_columnconfigure(1, weight=1)
+        stats.grid_columnconfigure(2, weight=1)
+
+        self._active_card = KPICard(
+            stats,
+            "Activos",
+            "0",
+            subtitle="Estudiantes activos",
+            icon="✅",
+            accent_color=COLORS["success"],
+        )
+        self._active_card.grid(row=0, column=0, padx=(0, 8), sticky="nsew")
+
+        self._retired_card = KPICard(
+            stats,
+            "Retirados",
+            "0",
+            subtitle="Estudiantes retirados",
+            icon="↩️",
+            accent_color=COLORS["warning"],
+        )
+        self._retired_card.grid(row=0, column=1, padx=8, sticky="nsew")
+
+        self._suspended_card = KPICard(
+            stats,
+            "Suspendidos",
+            "0",
+            subtitle="Estudiantes suspendidos",
+            icon="⏸️",
+            accent_color=COLORS["danger"],
+        )
+        self._suspended_card.grid(row=0, column=2, padx=(8, 0), sticky="nsew")
 
         # Barra de filtros
         filter_bar = ctk.CTkFrame(content, fg_color="transparent")
@@ -109,9 +145,18 @@ class EstudiantesView(ctk.CTkFrame):
                 ]
                 for e in estudiantes
             ]
-            self.after(0, lambda: self._refresh_table(self._all_rows, len(estudiantes)))
+            estadisticas = {"Activo": 0, "Retirado": 0, "Suspendido": 0}
+            for estudiante in estudiantes:
+                estadisticas[estudiante.estado] = estadisticas.get(estudiante.estado, 0) + 1
+            self.after(0, lambda: self._render_stats(self._all_rows, len(estudiantes), estadisticas))
         except Exception as exc:
-            self.after(0, lambda: self._status_lbl.configure(text=f"Error: {exc}", text_color=COLORS["danger"]))
+            self.after(0, lambda exc=exc: self._status_lbl.configure(text=f"Error: {exc}", text_color=COLORS["danger"]))
+
+    def _render_stats(self, rows: list, total: int, estadisticas: dict) -> None:
+        self._refresh_table(rows, total)
+        self._active_card.update_value(str(estadisticas.get("Activo", 0)))
+        self._retired_card.update_value(str(estadisticas.get("Retirado", 0)))
+        self._suspended_card.update_value(str(estadisticas.get("Suspendido", 0)))
 
     def _refresh_table(self, rows: list, total: int) -> None:
         self._table.load_data(rows, on_select=self._on_row_select)

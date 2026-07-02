@@ -7,10 +7,11 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
 import customtkinter as ctk
+import pandas as pd
 
-from config import COLORS, FONTS
+from config import COLORS, FONTS, HORAS_VOLUNTARIADO_REQUERIDAS
 from services.voluntariado import Voluntariado
-from ui.components.cards import ActionButton, DataTable, SearchBar
+from ui.components.cards import ActionButton, DataTable, SearchBar, AutocompleteEntry, KPICard
 
 if TYPE_CHECKING:
     from ui.app import App
@@ -40,13 +41,41 @@ class VoluntariadoView(ctk.CTkFrame):
         ActionButton(btn_f, "➕ Registrar", command=self._abrir_form).pack(side="left", padx=4)
         ActionButton(btn_f, "🗑 Eliminar", style="danger", command=self._eliminar).pack(side="left", padx=4)
 
-        # Stats globales
-        stats_f = ctk.CTkFrame(self, fg_color=COLORS["bg_card"],
-                                corner_radius=0, border_width=1, border_color=COLORS["border"])
-        stats_f.pack(fill="x", padx=20, pady=(16, 4))
-        self._stats_lbl = ctk.CTkLabel(stats_f, text="Calculando...",
-                                        font=FONTS["body"], text_color=COLORS["text_primary"])
-        self._stats_lbl.pack(padx=16, pady=10)
+        stats_f = ctk.CTkFrame(self, fg_color="transparent")
+        stats_f.pack(fill="x", padx=20, pady=(16, 8))
+        stats_f.grid_columnconfigure(0, weight=1)
+        stats_f.grid_columnconfigure(1, weight=1)
+        stats_f.grid_columnconfigure(2, weight=1)
+
+        self._hours_per_student_card = KPICard(
+            stats_f,
+            "Horas por estudiante",
+            "0.0h",
+            subtitle="Promedio de horas por estudiante",
+            icon="📊",
+            accent_color=COLORS["primary"],
+        )
+        self._hours_per_student_card.grid(row=0, column=0, padx=(0, 8), sticky="nsew")
+
+        self._completed_card = KPICard(
+            stats_f,
+            "Voluntariado",
+            "0",
+            subtitle="Estudiantes que completaron el voluntariado",
+            icon="✅",
+            accent_color=COLORS["success"],
+        )
+        self._completed_card.grid(row=0, column=1, padx=8, sticky="nsew")
+
+        self._accumulated_hours_card = KPICard(
+            stats_f,
+            "Horas acumuladas",
+            "0h",
+            subtitle="Total de horas en voluntariado",
+            icon="⏱️",
+            accent_color=COLORS["warning"],
+        )
+        self._accumulated_hours_card.grid(row=0, column=2, padx=(8, 0), sticky="nsew")
 
         content = ctk.CTkFrame(self, fg_color=COLORS["bg_main"])
         content.pack(fill="both", expand=True, padx=20, pady=8)
@@ -75,11 +104,15 @@ class VoluntariadoView(ctk.CTkFrame):
             svc_vol = self._app.services["voluntariado"]
             svc_est = self._app.services["estudiantes"]
             df = self._app.services["excel"].read_sheet("Voluntariado")
-            est_map = {str(e.id): e.nombre_completo for e in svc_est.listar_todos()}
+            estudiantes_activos = svc_est.listar_activos()
+            ids_activos = {str(e.id) for e in estudiantes_activos}
+            df_activos = df[df["IDEstudiante"].astype(str).isin(ids_activos)].copy() if not df.empty else df.copy()
+            est_map = {str(e.id): e.nombre_completo for e in estudiantes_activos}
             prom_horas = svc_vol.promedio_horas_global()
+            estudiantes_completados, horas_totales = self._calcular_estadisticas(df_activos)
 
             rows = []
-            for _, row in df.iterrows():
+            for _, row in df_activos.iterrows():
                 eid = str(row.get("IDEstudiante", ""))
                 rows.append([
                     str(row.get("ID", "")),
@@ -90,20 +123,31 @@ class VoluntariadoView(ctk.CTkFrame):
                     str(row.get("Observacion", ""))[:30],
                 ])
             self._all_rows = rows
-            self.after(0, lambda: self._render(rows, len(rows), prom_horas))
+            self.after(0, lambda: self._render(rows, len(rows), prom_horas, estudiantes_completados, horas_totales))
         except Exception as exc:
-            self.after(0, lambda: self._status.configure(text=f"Error: {exc}",
-                                                          text_color=COLORS["danger"]))
+            error_message = f"Error: {exc}"
+            self.after(0, lambda msg=error_message: self._status.configure(text=msg,
+                                                                          text_color=COLORS["danger"]))
 
-    def _render(self, rows, total, prom_horas) -> None:
+    @staticmethod
+    def _calcular_estadisticas(df: pd.DataFrame) -> tuple[int, float]:
+        if df.empty:
+            return 0, 0.0
+
+        horas_numeric = pd.to_numeric(df["Horas"], errors="coerce").fillna(0)
+        horas_totales = float(horas_numeric.sum())
+        horas_por_estudiante = df.assign(Horas=horas_numeric).groupby("IDEstudiante")["Horas"].sum()
+        estudiantes_completados = int((horas_por_estudiante >= HORAS_VOLUNTARIADO_REQUERIDAS).sum())
+        return estudiantes_completados, horas_totales
+
+    def _render(self, rows, total, prom_horas, estudiantes_completados, horas_totales) -> None:
         self._table.load_data(rows, on_select=self._on_select)
         shown = self._table.rendered_rows
         extra = f" — mostrando {shown} por rendimiento" if shown < total else ""
         self._status.configure(text=f"{total} registro(s){extra}", text_color=COLORS["text_secondary"])
-        self._stats_lbl.configure(
-            text=f"🤝  Promedio de horas por estudiante: {prom_horas:.1f}h  "
-                 f"(Meta: 40h por estudiante)"
-        )
+        self._hours_per_student_card.update_value(f"{prom_horas:.1f}h")
+        self._completed_card.update_value(str(estudiantes_completados))
+        self._accumulated_hours_card.update_value(f"{horas_totales:.1f}h")
 
     def _on_select(self, row_idx, row_data) -> None:
         try:
@@ -168,7 +212,7 @@ class FormularioVoluntariado(ctk.CTkToplevel):
         self._on_save = on_save
         self._preset_id = estudiante_id
         self.title("Registrar Voluntariado")
-        self.geometry("480x420")
+        self.geometry("480x600")
         self.grab_set()
         self.configure(fg_color=COLORS["bg_main"])
         self._build()
@@ -199,7 +243,13 @@ class FormularioVoluntariado(ctk.CTkToplevel):
                          text_color=COLORS["text_secondary"]).pack(anchor="w", pady=(10, 2))
 
         lbl("Estudiante *")
-        self._est = ctk.CTkComboBox(form, values=est_opts, height=38, font=FONTS["body"])
+        self._est = AutocompleteEntry(
+            form,
+            values=est_opts,
+            height=38,
+            font=FONTS["body"],
+            placeholder_text="Escribe el nombre o ID del estudiante",
+        )
         self._est.pack(fill="x")
         if self._preset_id:
             for opt in est_opts:
@@ -238,10 +288,10 @@ class FormularioVoluntariado(ctk.CTkToplevel):
 
     def _guardar(self) -> None:
         try:
-            est_sel = self._est.get()
+            est_sel = self._est.get_selected_value()
             if not est_sel:
                 raise ValueError("Selecciona un estudiante.")
-            eid = int(est_sel.split(" - ")[0])
+            eid = int(est_sel.split(" - ", 1)[0])
             horas_str = self._horas.get().strip()
             if not horas_str:
                 raise ValueError("Las horas son obligatorias.")

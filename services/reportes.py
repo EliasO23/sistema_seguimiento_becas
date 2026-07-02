@@ -18,7 +18,7 @@ from reportlab.platypus import (
 )
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
-from config import REPORTS_DIR
+from config import REPORTS_DIR, HORAS_VOLUNTARIADO_REQUERIDAS
 from services.estudiantes import Estudiante
 from services.indicadores import IndicadorEstudiante
 from utils.logger import logger
@@ -140,57 +140,51 @@ class ReportesService:
     def _encabezado(self, estudiante: Estudiante) -> list:
         elementos = [
             Paragraph("Sistema de Seguimiento — Estudiantes Becados", self.styles["Pie"]),
-            Paragraph(f"Reporte Individual: {estudiante.nombre_completo}", self.styles["TituloReporte"]),
-            Spacer(1, 0.2 * cm),
+            Paragraph(f"Reporte: {estudiante.nombre_completo}", self.styles["TituloReporte"]),
+            Paragraph(
+                f"Código: {estudiante.codigo} &nbsp;|&nbsp; "
+                f"Estado: {estudiante.estado} &nbsp;|&nbsp; "
+                f"Monitor: {estudiante.monitor}",
+                self.styles["CuerpoNormal"],
+            ),
+            Spacer(1, 0.4 * cm),
         ]
-
-        datos = [
-            ["Código", estudiante.codigo, "Estado", estudiante.estado],
-            ["Monitor", estudiante.monitor, "Universidad", estudiante.universidad],
-            ["Carrera", estudiante.carrera, "Ciclo", estudiante.ciclo],
-        ]
-        tabla_meta = Table(datos, colWidths=[3.2 * cm, 5.5 * cm, 3.2 * cm, 5.5 * cm])
-        tabla_meta.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), GRIS_CLARO),
-            ("TEXTCOLOR", (0, 0), (-1, -1), NEGRO),
-            ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
-            ("FONTSIZE", (0, 0), (-1, -1), 10),
-            ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("LINEBEFORE", (1, 0), (1, -1), 0.5, colors.HexColor("#E2E8F0")),
-            ("LINEBEFORE", (3, 0), (3, -1), 0.5, colors.HexColor("#E2E8F0")),
-            ("LINEABOVE", (0, 1), (-1, 1), 0.5, colors.HexColor("#E2E8F0")),
-            ("LEFTPADDING", (0, 0), (-1, -1), 8),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-            ("TOPPADDING", (0, 0), (-1, -1), 6),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-        ]))
-        elementos.extend([
-            tabla_meta,
-            Spacer(1, 0.6 * cm),
-        ])
         return elementos
 
     def _seccion_info_general(self, e: Estudiante) -> list:
         data = [
-            ["Campo", "Valor", "Campo", "Valor"],
-            ["Universidad", e.universidad, "Carrera", e.carrera],
-            ["Ciclo", e.ciclo, "Fecha Ingreso", e.fecha_ingreso],
-            ["Correo", e.correo, "Teléfono", e.telefono],
+            ["Universidad", e.universidad, "Correo", e.correo],
+            ["Carrera", e.carrera, "Fecha Ingreso", e.fecha_ingreso],
+            ["Ciclo", e.ciclo, "Teléfono", e.telefono],
         ]
-        tabla = Table(data, colWidths=[3.5 * cm, 6 * cm, 3.5 * cm, 4 * cm])
+        tabla = Table(data, colWidths=[3 * cm, 7 * cm, 3 * cm, 4 * cm])
         tabla.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), AZUL),
-            ("TEXTCOLOR", (0, 0), (-1, 0), BLANCO),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            # Tamaño de fuente
             ("FONTSIZE", (0, 0), (-1, -1), 9),
-            ("BACKGROUND", (0, 1), (-1, -1), GRIS_CLARO),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [BLANCO, GRIS_CLARO]),
+
+            # Fondo alternado para las filas
+            ("ROWBACKGROUNDS", (0, 0), (-1, -1), [BLANCO, GRIS_CLARO]),
+
+            # Columnas de etiquetas (1 y 3) en azul
+            ("BACKGROUND", (0, 0), (0, -1), AZUL),
+            ("BACKGROUND", (2, 0), (2, -1), AZUL),
+
+            # Texto blanco en las columnas azules
+            ("TEXTCOLOR", (0, 0), (0, -1), BLANCO),
+            ("TEXTCOLOR", (2, 0), (2, -1), BLANCO),
+
+            # Negrita en las etiquetas
+            ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+            ("FONTNAME", (2, 0), (2, -1), "Helvetica-Bold"),
+
+            # Bordes
             ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
+
+            # Alineación
             ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+
+            # Espaciado interno
             ("PADDING", (0, 0), (-1, -1), 6),
-            ("FONTNAME", (0, 1), (0, -1), "Helvetica-Bold"),
-            ("FONTNAME", (2, 1), (2, -1), "Helvetica-Bold"),
         ]))
         return [
             Paragraph("Información General", self.styles["Subtitulo"]),
@@ -202,13 +196,13 @@ class ReportesService:
         data = [
             ["Indicador", "Valor", "Estado"],
             ["Asistencia", f"{asi.get('pct_asistencia', 0):.1f}%",
-             "✓ OK" if asi.get('pct_asistencia', 0) >= 75 else "✗ Bajo"],
+             "OK" if asi.get('pct_asistencia', 0) >= 75 else "Bajo"],
             ["Promedio Académico", f"{ren.get('promedio', 0):.2f}",
-             "✓ OK" if ren.get('promedio', 0) >= 7 else "✗ Bajo"],
+             "OK" if ren.get('promedio', 0) >= 7 else "Bajo"],
             ["Horas Voluntariado", f"{vol.get('horas_acumuladas', 0):.1f} / 40h",
-             "✓ Cumplido" if vol.get('cumplido', False) else "⚠ Pendiente"],
+             "Cumplido" if vol.get('cumplido', False) else "Pendiente"],
             ["Días sin seguimiento", f"{ind.dias_sin_seguimiento}",
-             "✓ OK" if ind.dias_sin_seguimiento <= 30 else "⚠ Atención"],
+             "OK" if ind.dias_sin_seguimiento <= 30 else "Atención"],
             ["Índice de riesgo", f"{ind.indice_riesgo:.2%}", ind.nivel_riesgo],
         ]
         col_w = [6 * cm, 4 * cm, 4 * cm]
@@ -220,7 +214,7 @@ class ReportesService:
             ("FONTSIZE", (0, 0), (-1, -1), 10),
             ("ROWBACKGROUNDS", (0, 1), (-1, -1), [BLANCO, GRIS_CLARO]),
             ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
-            ("ALIGN", (1, 0), (-1, -1), "CENTER"),
+            ("ALIGN", (1, 0), (-1, -1), "LEFT"), 
             ("PADDING", (0, 0), (-1, -1), 7),
         ]))
         return [
@@ -230,35 +224,22 @@ class ReportesService:
         ]
 
     def _seccion_riesgo(self, ind: IndicadorEstudiante) -> list:
-        color_nivel = _color_riesgo(ind.nivel_riesgo)
-        contenido = [
-            [
-                Paragraph(f"<b>{ind.emoji_riesgo} {ind.nivel_riesgo}</b>", self.styles["CuerpoNormal"]),
-                Paragraph(f"Índice de riesgo: <b>{ind.indice_riesgo:.2%}</b>", self.styles["CuerpoNormal"]),
-            ]
-        ]
-        tabla_riesgo = Table(contenido, colWidths=[7.5 * cm, 5.5 * cm])
-        tabla_riesgo.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), color_nivel),
-            ("TEXTCOLOR", (0, 0), (-1, -1), BLANCO),
-            ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, -1), 10),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("TOPPADDING", (0, 0), (-1, -1), 10),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
-            ("LEFTPADDING", (0, 0), (-1, -1), 10),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 10),
-        ]))
 
         elementos = [
-            Paragraph("Nivel de Riesgo", self.styles["Subtitulo"]),
-            tabla_riesgo,
+            Paragraph("Alertas Activas", self.styles["Subtitulo"])
         ]
+
         if ind.alertas:
-            elementos.append(Spacer(1, 0.2 * cm))
-            elementos.append(Paragraph("<b>Alertas activas:</b>", self.styles["CuerpoNormal"]))
             for alerta in ind.alertas:
-                elementos.append(Paragraph(f"• {alerta}", self.styles["Alerta"]))
+                elementos.append(Paragraph(f"{alerta}", self.styles["Alerta"]))
+        else:
+            elementos.append(
+                Paragraph(
+                    "No existen alertas activas para este estudiante.",
+                    self.styles["CuerpoNormal"]
+                )
+            )
+        
         elementos.append(Spacer(1, 0.5 * cm))
         return elementos
 
@@ -269,17 +250,15 @@ class ReportesService:
                 Paragraph("Sin seguimientos registrados.", self.styles["CuerpoNormal"]),
                 Spacer(1, 0.5 * cm),
             ]
-        data = [["Fecha", "Tipo", "Descripción", "Acción"]]
+        data = [["Fecha", "Tipo", "Descripción"]]
         for s in historial[:10]:  # máximo 10 en el reporte
-            desc = str(s.get("Descripcion", "") or "")[:60]
-            accion = str(s.get("AccionRealizada", "") or "")[:40]
+            desc = str(s.get("Descripcion", "") or "")[:80]
             data.append([
                 str(s.get("Fecha", ""))[:10],
                 str(s.get("Tipo", "")),
                 desc,
-                accion,
             ])
-        col_w = [2.5 * cm, 3.5 * cm, 6 * cm, 5 * cm]
+        col_w = [2.5 * cm, 3.5 * cm, 11 * cm]
         tabla = Table(data, colWidths=col_w)
         tabla.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), AZUL),
@@ -292,7 +271,7 @@ class ReportesService:
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ]))
         return [
-            Paragraph("Historial de Seguimientos (últimos 10)", self.styles["Subtitulo"]),
+            Paragraph("Historial de Seguimientos", self.styles["Subtitulo"]),
             tabla,
             Spacer(1, 0.5 * cm),
         ]
@@ -348,23 +327,35 @@ class ReportesService:
 
         # KPIs resumen
         story.append(Paragraph("Resumen Ejecutivo", self.styles["Subtitulo"]))
+        story.append(Spacer(1, 0.3 * cm))
+
+        voluntariado_completo = sum(
+            1 for ind in indicadores if ind.horas_voluntariado >= HORAS_VOLUNTARIADO_REQUERIDAS
+        )
         kpi_data = [
-            ["Total Estudiantes", "En Riesgo Alto", "En Riesgo Medio", "Asistencia Promedio", "Promedio Académico"],
+            [
+                "Becados Activos",
+                "Rendimiento",
+                "Asistencia Prom.",
+                "Horas Voluntariado",
+                "Voluntariado Completado",
+            ],
             [
                 str(resumen.get("total", 0)),
-                str(resumen.get("en_riesgo_alto", 0)),
-                str(resumen.get("en_riesgo_medio", 0)),
-                f"{resumen.get('pct_asistencia_promedio', 0):.1f}%",
                 f"{resumen.get('promedio_academico', 0):.2f}",
+                f"{resumen.get('pct_asistencia_promedio', 0):.1f}%",
+                f"{resumen.get('horas_voluntariado_promedio', 0):.1f}",
+                str(voluntariado_completo),
             ],
         ]
-        t = Table(kpi_data, colWidths=[3.5*cm, 3.5*cm, 3.5*cm, 3.5*cm, 3.5*cm])
+        t = Table(kpi_data, colWidths=[3*cm, 3.2*cm, 3.2*cm, 3.2*cm, 4.4*cm])
         t.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), AZUL),
             ("TEXTCOLOR", (0, 0), (-1, 0), BLANCO),
-            ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, 0), 10),
-            ("FONTSIZE", (0, 1), (-1, 1), 11),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTNAME", (0, 1), (-1, 1), "Helvetica"),
+            ("FONTSIZE", (0, 0), (-1, 0), 9),
+            ("FONTSIZE", (0, 1), (-1, 1), 10),
             ("ALIGN", (0, 0), (-1, -1), "CENTER"),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("PADDING", (0, 0), (-1, -1), 8),
@@ -373,30 +364,76 @@ class ReportesService:
             ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
         ]))
         story.append(t)
-        story.append(Spacer(1, 0.7*cm))
+        story.append(Spacer(1, 0.8 * cm))
 
-        # Distribución de riesgos
-        story.append(Paragraph("Distribución de Riesgo", self.styles["Subtitulo"]))
-        risk_data = [
-            ["Nivel", "Cantidad", "Porcentaje"],
-            ["Bajo", str(resumen.get("en_riesgo_bajo", 0)), f"{resumen.get('pct_bajo', 0):.1f}%"],
-            ["Medio", str(resumen.get("en_riesgo_medio", 0)), f"{resumen.get('pct_medio', 0):.1f}%"],
-            ["Alto", str(resumen.get("en_riesgo_alto", 0)), f"{resumen.get('pct_alto', 0):.1f}%"],
+        # Nueva sección de indicadores
+        story.append(Paragraph("Indicadores", self.styles["Subtitulo"]))
+        story.append(Spacer(1, 0.3 * cm))
+
+        riesgo_bajo = resumen.get("en_riesgo_bajo", 0)
+        riesgo_medio = resumen.get("en_riesgo_medio", 0)
+        riesgo_alto = resumen.get("en_riesgo_alto", 0)
+        total_riesgo = max(riesgo_bajo + riesgo_medio + riesgo_alto, 1)
+
+        rendimiento = [r for r in indicadores if getattr(r, "promedio_academico", 0) > 0]
+        promedio_general = round(sum(r.promedio_academico for r in rendimiento) / len(rendimiento), 2) if rendimiento else 0.0
+        reprobaron = sum(1 for r in rendimiento if r.promedio_academico < 7.0)
+        menor_promedio = min((r.promedio_academico for r in rendimiento), default=0.0)
+
+        tabla_unica_data = [
+            ["Riesgo Bajo", f"{riesgo_bajo} ({riesgo_bajo / total_riesgo * 100:.1f}%)", "Promedio General de Notas", f"{promedio_general:.2f}"],
+            ["Riesgo Medio", f"{riesgo_medio} ({riesgo_medio / total_riesgo * 100:.1f}%)", "Becados con Materias Reprobadas", str(reprobaron)],
+            ["Riesgo Alto", f"{riesgo_alto} ({riesgo_alto / total_riesgo * 100:.1f}%)", "Menor promedio registrado", f"{menor_promedio:.2f}"],
         ]
-        r = Table(risk_data, colWidths=[5*cm, 4*cm, 5*cm])
-        r.setStyle(TableStyle([
+        tabla_unica = Table(
+            tabla_unica_data,
+            colWidths=[4.0*cm, 3.0*cm, 6.5*cm, 4*cm],
+            repeatRows=0,
+        )
+        tabla_unica.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (0, -1), AZUL),
+            ("BACKGROUND", (2, 0), (2, -1), AZUL),
+            ("BACKGROUND", (1, 0), (1, -1), BLANCO),
+            ("BACKGROUND", (3, 0), (3, -1), BLANCO),
+            ("TEXTCOLOR", (0, 0), (0, -1), BLANCO),
+            ("TEXTCOLOR", (2, 0), (2, -1), BLANCO),
+            ("TEXTCOLOR", (1, 0), (1, -1), NEGRO),
+            ("TEXTCOLOR", (3, 0), (3, -1), NEGRO),
+            ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+            ("FONTNAME", (2, 0), (2, -1), "Helvetica-Bold"),
+            ("FONTNAME", (1, 0), (1, -1), "Helvetica"),
+            ("FONTNAME", (3, 0), (3, -1), "Helvetica"),
+            ("FONTSIZE", (0, 0), (3, -1), 9),
+            ("ALIGN", (0, 0), (3, -1), "CENTER"),
+            ("VALIGN", (0, 0), (3, -1), "MIDDLE"),
+            ("PADDING", (0, 0), (3, -1), 7),
+            ("GRID", (0, 0), (3, -1), 0.5, colors.HexColor("#E2E8F0")),
+        ]))
+        story.append(tabla_unica)
+        story.append(Spacer(1, 0.7 * cm))
+
+        story.append(Paragraph("Voluntariado", self.styles["Subtitulo"]))
+        voluntariado_data = [
+            ["Horas", "Estudiantes"],
+            ["0-14", str(sum(1 for ind in indicadores if 0 <= ind.horas_voluntariado <= 14))],
+            ["15-29", str(sum(1 for ind in indicadores if 15 <= ind.horas_voluntariado <= 29))],
+            ["30-44", str(sum(1 for ind in indicadores if 30 <= ind.horas_voluntariado <= 44))],
+            ["45-60", str(sum(1 for ind in indicadores if 45 <= ind.horas_voluntariado <= 60))],
+        ]
+        voluntariado_table = Table(voluntariado_data, colWidths=[6*cm, 6*cm])
+        voluntariado_table.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), AZUL),
             ("TEXTCOLOR", (0, 0), (-1, 0), BLANCO),
-            ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, -1), 10),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
             ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [BLANCO, GRIS_CLARO]),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("PADDING", (0, 0), (-1, -1), 7),
             ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
-            ("LEFTPADDING", (0, 0), (-1, -1), 6),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [BLANCO, GRIS_CLARO]),
         ]))
-        story.append(r)
-        story.append(Spacer(1, 0.7*cm))
+        story.append(voluntariado_table)
+        story.append(Spacer(1, 0.7 * cm))
 
         # Tabla de todos los estudiantes
         story.append(Paragraph("Detalle por Estudiante", self.styles["Subtitulo"]))
@@ -408,9 +445,9 @@ class ReportesService:
                 f"{ind.pct_asistencia:.1f}%",
                 f"{ind.promedio_academico:.2f}",
                 f"{ind.horas_voluntariado:.0f}h",
-                f"{ind.emoji_riesgo} {ind.nivel_riesgo}",
+                f"{ind.nivel_riesgo}",
             ])
-        col_w = [7 * cm, 3 * cm, 3 * cm, 3 * cm, 3 * cm]
+        col_w = [6 * cm, 3 * cm, 2.5 * cm, 3 * cm, 2.5 * cm]
         t2 = Table(rows, colWidths=col_w, repeatRows=1)
         t2.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), AZUL),

@@ -11,7 +11,7 @@ import customtkinter as ctk
 
 from config import COLORS, FONTS, TIPOS_SEGUIMIENTO
 from services.seguimiento import Seguimiento
-from ui.components.cards import SectionHeader, SearchBar, ActionButton, DataTable
+from ui.components.cards import SectionHeader, SearchBar, ActionButton, DataTable, AutocompleteEntry
 
 if TYPE_CHECKING:
     from ui.app import App
@@ -113,7 +113,7 @@ class SeguimientoView(ctk.CTkFrame):
 
             self.after(0, lambda: self._render(rows, len(rows), prox_texto))
         except Exception as exc:
-            self.after(0, lambda: self._status.configure(text=f"Error: {exc}", text_color=COLORS["danger"]))
+            self.after(0, lambda exc=exc: self._status.configure(text=f"Error: {exc}", text_color=COLORS["danger"]))
 
     def _render(self, rows, total, prox_texto) -> None:
         self._table.load_data(rows, on_select=self._on_select)
@@ -217,7 +217,13 @@ class FormularioSeguimiento(ctk.CTkToplevel):
                          text_color=COLORS["text_secondary"]).pack(anchor="w", pady=(8, 2))
 
         lbl("Estudiante *")
-        self._est_combo = ctk.CTkComboBox(scroll, values=est_opts, height=38, font=FONTS["body"])
+        self._est_combo = AutocompleteEntry(
+            scroll,
+            values=est_opts,
+            height=38,
+            font=FONTS["body"],
+            placeholder_text="Escribe el nombre o ID del estudiante",
+        )
         self._est_combo.pack(fill="x")
         if self._preset_id:
             for opt in est_opts:
@@ -288,10 +294,10 @@ class FormularioSeguimiento(ctk.CTkToplevel):
 
     def _guardar(self) -> None:
         try:
-            est_sel = self._est_combo.get()
+            est_sel = self._est_combo.get_selected_value()
             if not est_sel:
                 raise ValueError("Selecciona un estudiante.")
-            eid = int(est_sel.split(" - ")[0])
+            eid = int(est_sel.split(" - ", 1)[0])
             try:
                 app = self.master._app
             except AttributeError:

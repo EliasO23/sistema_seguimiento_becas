@@ -71,6 +71,66 @@ class AsistenciaService:
     def obtener_todas(self) -> pd.DataFrame:
         return self._excel.read_sheet(SHEET_ASISTENCIAS)
 
+    def resumen_por_estudiante(self, df: Optional[pd.DataFrame] = None, mes: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Agrupa las asistencias por estudiante con conteos y porcentaje de presencia."""
+        source = df if df is not None else self._excel.read_sheet(SHEET_ASISTENCIAS)
+        if source is None or source.empty:
+            return []
+
+        data = source.copy()
+        if "IDEstudiante" not in data.columns or "Estado" not in data.columns:
+            return []
+
+        data = data.where(pd.notna(data), None)
+        data["IDEstudiante"] = data["IDEstudiante"].astype(str).replace({"nan": "", "None": ""})
+        data["Estado"] = data["Estado"].astype(str).replace({"nan": "", "None": ""})
+
+        if mes and "Fecha" in data.columns:
+            data = data[data["Fecha"].astype(str).str.startswith(str(mes), na=False)].copy()
+
+        rows: List[Dict[str, Any]] = []
+        for estudiante_id, group in data.groupby("IDEstudiante", dropna=False):
+            if not str(estudiante_id).strip():
+                continue
+            total = len(group)
+            presentes = int((group["Estado"] == "Presente").sum())
+            ausentes = int((group["Estado"] == "Ausente").sum())
+            tardanzas = int((group["Estado"] == "Tardanza").sum())
+            justificados = int((group["Estado"] == "Justificado").sum())
+            pct = round((presentes / total) * 100, 1) if total else 0.0
+            rows.append({
+                "id": str(estudiante_id),
+                "total": total,
+                "presentes": presentes,
+                "ausentes": ausentes,
+                "tardanzas": tardanzas,
+                "justificados": justificados,
+                "pct_asistencia": pct,
+            })
+
+        return sorted(rows, key=lambda r: (int(r["id"]) if str(r["id"]).isdigit() else 10**9, r["total"]), reverse=False)
+
+    def meses_disponibles(self, df: Optional[pd.DataFrame] = None) -> List[str]:
+        """Retorna los meses disponibles en formato YYYY-MM ordenados ascendentemente."""
+        source = df if df is not None else self._excel.read_sheet(SHEET_ASISTENCIAS)
+        if source is None or source.empty or "Fecha" not in source.columns:
+            return []
+
+        fechas = source["Fecha"].dropna().astype(str)
+        meses = set()
+        for fecha in fechas:
+            text = fecha.strip()
+            if not text:
+                continue
+            try:
+                parsed = pd.to_datetime(text, errors="coerce")
+            except Exception:
+                continue
+            if pd.notna(parsed):
+                meses.add(parsed.strftime("%Y-%m"))
+
+        return sorted(meses)
+
     # ── Cálculos ──────────────────────────────────────────────────────────────
 
     def calcular_estadisticas(self, estudiante_id: int) -> Dict[str, Any]:

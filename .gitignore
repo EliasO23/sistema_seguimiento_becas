@@ -1,3 +1,8 @@
-reports/
-data/backups/
-exports/
+reports/*
+!reports/.gitkeep
+data/backups/*
+!data/backups/.gitkeep
+exports/*
+!exports/.gitkeep
+tests/
+*.log

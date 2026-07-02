@@ -70,7 +70,7 @@ COLS_RENDIMIENTO = [
 COLS_CONFIG = ["Clave", "Valor", "Descripcion"]
 
 # ── Parámetros de negocio ─────────────────────────────────────────────────────
-HORAS_VOLUNTARIADO_REQUERIDAS: float = 40.0
+HORAS_VOLUNTARIADO_REQUERIDAS: float = 60.0
 PROMEDIO_MINIMO: float = 7.0
 PORCENTAJE_ASISTENCIA_MINIMO: float = 75.0
 DIAS_SIN_SEGUIMIENTO_ALERTA: int = 30
@@ -172,4 +172,4 @@ TIPOS_SEGUIMIENTO = [
 ]
 
 ESTADOS_ASISTENCIA = ["Presente", "Ausente", "Tardanza", "Justificado"]
-ESTADOS_ESTUDIANTE = ["Activo", "Inactivo", "Suspendido", "Egresado"]
+ESTADOS_ESTUDIANTE = ["Activo", "Retirado", "Suspendido"]

@@ -8,6 +8,109 @@ from tkinter import ttk
 from config import COLORS, FONTS
 
 
+def filter_options(options: list[str], query: str) -> list[str]:
+    """Filtra opciones por coincidencia parcial sin distinguir mayúsculas."""
+    text = (query or "").strip().lower()
+    if not text:
+        return list(options)
+    return [option for option in options if text in option.lower()]
+
+
+class AutocompleteEntry(ctk.CTkFrame):
+    """Campo de entrada con sugerencias desplegables."""
+
+    def __init__(self, master, values: list[str], placeholder_text: str = "Buscar...", height: int = 38,
+                 font=None, on_select=None, **kwargs) -> None:
+        super().__init__(master, fg_color="transparent", **kwargs)
+        self._values = list(values)
+        self._on_select = on_select
+        self._selected_value = ""
+        self._font = font or FONTS["body"]
+        self._height = height
+        self._build(placeholder_text)
+
+    def _build(self, placeholder_text: str) -> None:
+        self._container = ctk.CTkFrame(
+            self,
+            fg_color=COLORS["bg_card"],
+            border_width=1,
+            border_color=COLORS["border"],
+            corner_radius=8,
+        )
+        self._container.pack(fill="x")
+
+        self._entry = ctk.CTkEntry(
+            self._container,
+            placeholder_text=placeholder_text,
+            border_width=0,
+            fg_color="transparent",
+            font=self._font,
+            height=self._height,
+        )
+        self._entry.pack(side="left", fill="x", expand=True, padx=(10, 8), pady=6)
+        self._entry.bind("<KeyRelease>", self._on_key_release)
+
+        self._suggestions = ctk.CTkFrame(
+            self,
+            fg_color=COLORS["bg_card"],
+            border_width=1,
+            border_color=COLORS["border"],
+            corner_radius=8,
+        )
+        self._suggestions.pack(fill="x", pady=(4, 0))
+        self._suggestions.pack_forget()
+
+    def _on_key_release(self, _event=None) -> None:
+        query = self._entry.get()
+        self._selected_value = query if query in self._values else ""
+        self._render_suggestions(query)
+        if self._on_select:
+            self._on_select(query)
+
+    def _render_suggestions(self, query: str) -> None:
+        for child in self._suggestions.winfo_children():
+            child.destroy()
+
+        matches = filter_options(self._values, query)
+        if not query or not matches:
+            self._suggestions.pack_forget()
+            return
+
+        for option in matches[:8]:
+            ctk.CTkButton(
+                self._suggestions,
+                text=option,
+                fg_color="transparent",
+                hover_color=COLORS["bg_main"],
+                text_color=COLORS["text_primary"],
+                anchor="w",
+                height=32,
+                corner_radius=6,
+                command=lambda value=option: self._select_option(value),
+            ).pack(fill="x", padx=6, pady=2)
+        self._suggestions.pack(fill="x")
+
+    def _select_option(self, value: str) -> None:
+        self._selected_value = value
+        self._entry.delete(0, "end")
+        self._entry.insert(0, value)
+        self._suggestions.pack_forget()
+
+    def set(self, value: str) -> None:
+        self._selected_value = value if value in self._values else ""
+        self._entry.delete(0, "end")
+        self._entry.insert(0, value)
+
+    def get(self) -> str:
+        return self._entry.get().strip()
+
+    def get_selected_value(self) -> str:
+        current = self.get()
+        if current in self._values:
+            return current
+        return self._selected_value
+
+
 class KPICard(ctk.CTkFrame):
     """Tarjeta de indicador clave de rendimiento."""
 
@@ -229,19 +332,35 @@ class ActionButton(ctk.CTkButton):
         "success": {"fg_color": COLORS["success"], "hover_color": "#059669", "text_color": "white"},
         "danger": {"fg_color": COLORS["danger"], "hover_color": "#DC2626", "text_color": "white"},
         "secondary": {"fg_color": COLORS["border"], "hover_color": "#CBD5E1", "text_color": COLORS["text_primary"]},
-        "ghost": {"fg_color": "transparent", "hover_color": COLORS["bg_main"], "text_color": COLORS["primary"]},
-        "ghost_light": {"fg_color": "transparent", "hover_color": "gray", "text_color": "white"},
+        "ghost": {
+            "fg_color": "transparent",
+            "hover_color": COLORS["bg_main"],
+            "text_color": COLORS["primary"],
+            "border_width": 2,
+            "border_color": COLORS["primary"],
+        },
+        "ghost_light": {
+            "fg_color": "transparent",
+            "hover_color": None,
+            "text_color": "white",
+            "border_width": 1,
+            "border_color": "white",
+        },
     }
 
     def __init__(self, master, text: str, style: str = "primary", **kwargs) -> None:
-        style_cfg = self.STYLES.get(style, self.STYLES["primary"])
+        style_cfg = dict(self.STYLES.get(style, self.STYLES["primary"]))
+        override_keys = {"fg_color", "hover_color", "text_color", "border_width", "border_color"}
+        for key in override_keys:
+            if key in kwargs:
+                style_cfg[key] = kwargs.pop(key)
+
         super().__init__(
             master,
             text=text,
             corner_radius=8,
             height=36,
             font=FONTS["body_sm"],
-            border_width=0,
             **style_cfg,
             **kwargs,
         )
@@ -292,6 +411,11 @@ class DataTable(ctk.CTkFrame):
             background=[("selected", COLORS["primary_light"])],
             foreground=[("selected", COLORS["text_primary"])],
         )
+        style.map(
+            "Table.Treeview.Heading",
+            background=[("active", COLORS["primary"]), ("pressed", COLORS["primary"]), ("!disabled", COLORS["primary"])],
+            foreground=[("active", "white"), ("pressed", "white"), ("!disabled", "white")],
+        )
 
         table_frame = ctk.CTkFrame(container, fg_color="transparent")
         table_frame.pack(fill="both", expand=True, padx=1, pady=1)
@@ -304,8 +428,10 @@ class DataTable(ctk.CTkFrame):
             selectmode="browse",
         )
         y_scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self._tree.yview)
-        x_scroll = ttk.Scrollbar(table_frame, orient="horizontal", command=self._tree.xview)
-        self._tree.configure(yscrollcommand=y_scroll.set, xscrollcommand=x_scroll.set)
+        # x_scroll = ttk.Scrollbar(table_frame, orient="horizontal", command=self._tree.xview)
+        self._tree.configure(yscrollcommand=y_scroll.set, 
+                            #  xscrollcommand=x_scroll.set
+                             )
 
         for i, col in enumerate(self._columns):
             self._tree.heading(col, text=col)
@@ -318,7 +444,7 @@ class DataTable(ctk.CTkFrame):
 
         self._tree.grid(row=0, column=0, sticky="nsew")
         y_scroll.grid(row=0, column=1, sticky="ns")
-        x_scroll.grid(row=1, column=0, sticky="ew")
+        # x_scroll.grid(row=1, column=0, sticky="ew")
         table_frame.grid_rowconfigure(0, weight=1)
         table_frame.grid_columnconfigure(0, weight=1)
 

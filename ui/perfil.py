@@ -65,7 +65,7 @@ class PerfilEstudianteView(ctk.CTkToplevel):
                 seg_hist_df, asi_hist_df,
             ))
         except Exception as exc:
-            self.after(0, lambda: self._show_error(str(exc)))
+            self.after(0, lambda exc=exc: self._show_error(str(exc)))
 
     def _render(self, est, ind, asi_stats, vol_stats, seg_stats,
                 ren_stats, seg_hist_df, asi_hist_df) -> None:

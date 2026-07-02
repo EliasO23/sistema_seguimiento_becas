@@ -52,7 +52,7 @@ class SidebarMenu(ctk.CTkFrame):
             text_color=COLORS["text_white"],
         ).pack()
         ctk.CTkLabel(
-            logo_frame, text="v2.0",
+            logo_frame, text="Ministerio de Educación",
             font=FONTS["caption"],
             text_color=COLORS["text_light"],
         ).pack()
@@ -94,7 +94,7 @@ class SidebarMenu(ctk.CTkFrame):
         ctk.CTkFrame(self, height=1, fg_color=COLORS["bg_sidebar_hover"]).pack(fill="x", padx=16)
         ctk.CTkLabel(
             self,
-            text="© 2025 Sistema Becados",
+            text="© 2026 Sistema Becados",
             font=FONTS["caption"],
             text_color=COLORS["text_light"],
         ).pack(pady=12)

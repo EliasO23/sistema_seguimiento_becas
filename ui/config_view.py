@@ -140,12 +140,16 @@ class ConfigView(ctk.CTkFrame):
         SectionHeader(info_panel, "ℹ️ Información del Sistema", "Detalles técnicos del entorno actual.").pack(fill="x", padx=16, pady=(6, 8))
 
         info_items = [
-            ("Versión", "2.0.0"),
+            ("Versión", "1.0.0"),
             ("Motor de base de datos", "Excel (OpenPyXL)"),
             ("Framework UI", "CustomTkinter"),
             ("Visualización", "Matplotlib"),
             ("Reportes", "ReportLab"),
             ("Análisis de datos", "Pandas / NumPy"),
+            ("Hecho por", "AEME Tech"),
+            ("Desarrollador Backend", "Manuel Alfredo Lara Guardado"),
+            ("Desarrollador Backend", "Elias Antonio Oliva Calderon"),
+            ("Desarrollador Frontend", "Emerson Eli Mendoza Lemus"),
         ]
         for label, value in info_items:
             row = ctk.CTkFrame(info_panel, fg_color="transparent")

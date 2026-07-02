@@ -45,48 +45,6 @@ class ReportesView(ctk.CTkFrame):
         scroll = ctk.CTkScrollableFrame(self, fg_color=COLORS["bg_main"])
         scroll.pack(fill="both", expand=True, padx=24, pady=(18, 24))
 
-        # overview = ctk.CTkFrame(
-        #     scroll,
-        #     fg_color=COLORS["bg_card"],
-        #     corner_radius=20,
-        #     border_width=1,
-        #     border_color=COLORS["border"],
-        # )
-        # overview.pack(fill="x", pady=(0, 22))
-        # ctk.CTkLabel(
-        #     overview,
-        #     text="Centro de operaciones",
-        #     font=("Segoe UI", 16, "bold"),
-        #     text_color=COLORS["text_primary"],
-        # ).pack(anchor="w", padx=22, pady=(18, 4))
-        # ctk.CTkLabel(
-        #     overview,
-        #     text="Aquí puedes generar informes, exportar datos y guardar respaldos desde un panel más ordenado y visualmente claro.",
-        #     font=FONTS["body"],
-        #     text_color=COLORS["text_secondary"],
-        #     wraplength=900,
-        #     justify="left",
-        # ).pack(anchor="w", padx=22, pady=(0, 14))
-
-        # chips = ctk.CTkFrame(overview, fg_color="transparent")
-        # chips.pack(fill="x", padx=18, pady=(0, 18))
-        # for icon, title, desc in [
-        #     ("📄", "Informes PDF", "Reportes profesionales"),
-        #     ("📊", "Exportaciones", "Archivos Excel y CSV"),
-        #     ("🛡️", "Respaldos", "Copias seguras del sistema"),
-        # ]:
-        #     chip = ctk.CTkFrame(
-        #         chips,
-        #         fg_color=COLORS["bg_main"],
-        #         corner_radius=14,
-        #         border_width=1,
-        #         border_color=COLORS["border"],
-        #     )
-        #     chip.pack(side="left", fill="both", expand=True, padx=6)
-        #     ctk.CTkLabel(chip, text=icon, font=("Segoe UI Emoji", 18)).pack(pady=(12, 4))
-        #     ctk.CTkLabel(chip, text=title, font=FONTS["body_sm"], text_color=COLORS["text_primary"]).pack()
-        #     ctk.CTkLabel(chip, text=desc, font=FONTS["caption"], text_color=COLORS["text_secondary"]).pack(pady=(2, 12))
-
         # ── Reportes PDF ──────────────────────────────────────────────────────
         SectionHeader(scroll, "📄 Reportes PDF", "Genera informes profesionales en PDF").pack(
             fill="x", pady=(0, 14))
@@ -226,9 +184,9 @@ class ReportesView(ctk.CTkFrame):
 
     def _do_reporte_general(self) -> str:
         svc = self._app.services
-        todos = svc["estudiantes"].listar_todos()
+        activos = svc["estudiantes"].listar_activos()
         indicadores = svc["indicadores"].calcular_lote(
-            [e.to_dict() for e in todos[:80]]
+            [e.to_dict() for e in activos]
         )
         resumen = svc["indicadores"].resumen_global(indicadores)
         dest = svc["reportes"].reporte_general(indicadores, resumen)
@@ -239,9 +197,9 @@ class ReportesView(ctk.CTkFrame):
 
     def _do_reporte_riesgo(self) -> str:
         svc = self._app.services
-        todos = svc["estudiantes"].listar_todos()
+        activos = svc["estudiantes"].listar_activos()
         indicadores = svc["indicadores"].calcular_lote(
-            [e.to_dict() for e in todos[:80]]
+            [e.to_dict() for e in activos]
         )
         en_riesgo = svc["indicadores"].estudiantes_en_riesgo(indicadores)
         resumen = svc["indicadores"].resumen_global(en_riesgo) if en_riesgo else {}
@@ -295,13 +253,30 @@ class ReportesView(ctk.CTkFrame):
 
     def _run_async(self, fn, msg: str = "Procesando...") -> None:
         self._log("⏳ " + msg, COLORS["text_secondary"])
-        def _worker():
+
+        def _worker() -> None:
             try:
                 result = fn()
-                self.after(0, lambda: self._log(result, COLORS["success"]))
+                self.after(0, lambda: self._mostrar_aviso(result))
             except Exception as exc:
-                self.after(0, lambda: self._log(f"❌ Error: {exc}", COLORS["danger"]))
+                self.after(0, lambda exc=exc: self._log(f"❌ Error: {exc}", COLORS["danger"]))
+
         threading.Thread(target=_worker, daemon=True).start()
+
+    def _mostrar_aviso(self, msg: str) -> None:
+        dlg = ctk.CTkToplevel(self)
+        dlg.title("Operación completada")
+        dlg.geometry("440x150")
+        dlg.grab_set()
+        ctk.CTkLabel(
+            dlg,
+            text=msg,
+            font=FONTS["body"],
+            text_color=COLORS["success"],
+            wraplength=380,
+            justify="center",
+        ).pack(pady=24)
+        ActionButton(dlg, "OK", command=dlg.destroy).pack()
 
     def _log(self, msg: str, color: str = COLORS["text_primary"]) -> None:
         for w in self._log_frame.winfo_children():

@@ -11,7 +11,7 @@ import pandas as pd
 
 from config import COLORS, FONTS
 from services.rendimiento import Rendimiento
-from ui.components.cards import ActionButton, DataTable, KPICard, SearchBar
+from ui.components.cards import ActionButton, DataTable, KPICard, SearchBar, AutocompleteEntry
 
 if TYPE_CHECKING:
     from ui.app import App
@@ -141,7 +141,7 @@ class RendimientoView(ctk.CTkFrame):
             self._all_rows = rows
             self.after(0, lambda: self._render(rows, promedio_global, estudiantes_reprobadas))
         except Exception as exc:
-            self.after(0, lambda: self._status.configure(text=f"Error: {exc}", text_color=COLORS["danger"]))
+            self.after(0, lambda exc=exc: self._status.configure(text=f"Error: {exc}", text_color=COLORS["danger"]))
 
     def _render(self, rows: list[list[str]], promedio_global: float, estudiantes_reprobadas: int) -> None:
         self._table.load_data(rows, on_select=self._on_select)
@@ -276,7 +276,13 @@ class FormularioRendimiento(ctk.CTkToplevel):
             ctk.CTkLabel(scroll, text=text, font=FONTS["body_sm"], text_color=COLORS["text_secondary"]).pack(anchor="w", pady=(8, 2))
 
         lbl("Estudiante *")
-        self._fields["estudiante"] = ctk.CTkComboBox(scroll, values=est_opts, height=38, font=FONTS["body"])
+        self._fields["estudiante"] = AutocompleteEntry(
+            scroll,
+            values=est_opts,
+            height=38,
+            font=FONTS["body"],
+            placeholder_text="Escribe el nombre o ID del estudiante",
+        )
         self._fields["estudiante"].pack(fill="x")
 
         lbl("Promedio *")
@@ -350,6 +356,10 @@ class FormularioRendimiento(ctk.CTkToplevel):
         if isinstance(widget, ctk.CTkEntry):
             return widget.get().strip()
         if isinstance(widget, ctk.CTkComboBox):
+            return widget.get().strip()
+        if hasattr(widget, "get_selected_value"):
+            return widget.get_selected_value().strip()
+        if hasattr(widget, "get"):
             return widget.get().strip()
         return ""
 

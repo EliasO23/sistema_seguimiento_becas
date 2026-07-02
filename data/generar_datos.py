@@ -71,7 +71,7 @@ def generar_estudiantes(n: int = 100) -> list[dict]:
         apellido = f"{random.choice(APELLIDOS)} {random.choice(APELLIDOS)}"
         estado = random.choices(
             ESTADOS_ESTUDIANTE,
-            weights=[80, 8, 5, 7],
+            weights=[80, 12, 8],
             k=1,
         )[0]
         codigo = f"BEC{2020 + random.randint(0, 4)}{i:04d}"
@@ -136,7 +136,7 @@ def generar_voluntariado(estudiantes: list[dict]) -> list[dict]:
     registros = []
     vid = 1
     for est in estudiantes:
-        if est["Estado"] == "Egresado":
+        if est["Estado"] == "Retirado":
             continue
         num_actividades = random.randint(1, 8)
         for _ in range(num_actividades):
@@ -157,7 +157,7 @@ def generar_seguimientos(estudiantes: list[dict]) -> list[dict]:
     registros = []
     sid = 1
     for est in estudiantes:
-        if est["Estado"] == "Egresado":
+        if est["Estado"] == "Retirado":
             continue
         num_seg = random.randint(2, 8)
         for j in range(num_seg):

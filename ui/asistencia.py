@@ -7,14 +7,10 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
 import customtkinter as ctk
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from config import COLORS, FONTS, ESTADOS_ASISTENCIA
 from services.asistencia import Asistencia
-from ui.components.cards import SectionHeader, SearchBar, ActionButton, DataTable
+from ui.components.cards import SectionHeader, SearchBar, ActionButton, DataTable, AutocompleteEntry
 
 if TYPE_CHECKING:
     from ui.app import App
@@ -23,13 +19,16 @@ if TYPE_CHECKING:
 class AsistenciaView(ctk.CTkFrame):
     """Vista de gestión de asistencias."""
 
-    COLUMNS = ["ID", "Estudiante", "Fecha", "Estado", "Observación"]
+    COLUMNS = ["ID", "Estudiante", "Presente", "Ausente", "Tardanza", "Justificado", "Asistencia"]
 
     def __init__(self, master, app: "App", **kwargs) -> None:
         super().__init__(master, fg_color=COLORS["bg_main"], **kwargs)
         self._app = app
         self._selected_id: Optional[int] = None
         self._all_rows: list = []
+        self._active_query = ""
+        self._active_estado = "Todos"
+        self._active_mes = "Todos"
         self._build()
 
     def _build(self) -> None:
@@ -71,6 +70,18 @@ class AsistenciaView(ctk.CTkFrame):
                                   command=self._on_search)
         self._search.pack(side="left", fill="x", expand=True, padx=(0, 12))
 
+        ctk.CTkLabel(filter_bar, text="Mes:", font=FONTS["body_sm"],
+                     text_color=COLORS["text_secondary"]).pack(side="left", padx=(0, 4))
+        self._filtro_mes = ctk.CTkComboBox(
+            filter_bar,
+            values=["Todos"],
+            width=140, height=36,
+            font=FONTS["body_sm"],
+            command=self._on_filtro_mes,
+        )
+        self._filtro_mes.set("Todos")
+        self._filtro_mes.pack(side="left", padx=(0, 12))
+
         ctk.CTkLabel(filter_bar, text="Estado:", font=FONTS["body_sm"],
                      text_color=COLORS["text_secondary"]).pack(side="left", padx=(0, 4))
         self._filtro = ctk.CTkComboBox(
@@ -94,6 +105,8 @@ class AsistenciaView(ctk.CTkFrame):
                                      text_color=COLORS["text_secondary"])
         self._status.pack(anchor="w", pady=(8, 0))
 
+        self._table.load_data([], on_select=self._on_select)
+        self._status.configure(text="Cargando asistencia...", text_color=COLORS["text_secondary"])
         self.refresh()
 
     def refresh(self) -> None:
@@ -107,29 +120,44 @@ class AsistenciaView(ctk.CTkFrame):
             est_map = {str(e.id): e.nombre_completo for e in svc_est.listar_todos()}
             pct_global = svc_asi.promedio_asistencia_global()
 
+            meses = svc_asi.meses_disponibles(df)
+            if self._filtro_mes.winfo_exists():
+                self._filtro_mes.configure(values=["Todos"] + meses)
+                if self._active_mes not in (["Todos"] + meses):
+                    self._active_mes = "Todos"
+                    self._filtro_mes.set("Todos")
+
+            resumen = svc_asi.resumen_por_estudiante(df, mes=self._active_mes if self._active_mes != "Todos" else None)
             rows = []
-            for _, row in df.iterrows():
-                eid = str(row.get("IDEstudiante", ""))
+            for item in resumen:
+                eid = item["id"]
                 rows.append([
-                    str(row.get("ID", "")),
+                    eid,
                     est_map.get(eid, f"ID:{eid}"),
-                    str(row.get("Fecha", ""))[:10],
-                    str(row.get("Estado", "")),
-                    str(row.get("Observacion", ""))[:40],
+                    str(item["presentes"]),
+                    str(item["ausentes"]),
+                    str(item["tardanzas"]),
+                    str(item["justificados"]),
+                    f"{item['pct_asistencia']:.1f}%",
                 ])
             self._all_rows = rows
 
             self.after(0, lambda: self._render(rows, len(rows), pct_global))
         except Exception as exc:
-            self.after(0, lambda: self._status.configure(
+            self.after(0, lambda exc=exc: self._status.configure(
                 text=f"Error: {exc}", text_color=COLORS["danger"]))
 
     def _render(self, rows, total, pct_global) -> None:
-        self._table.load_data(rows, on_select=self._on_select)
+        self._all_rows = rows
+        if self._active_mes == "Todos" and self._active_estado == "Todos" and not self._active_query:
+            self._table.load_data(rows, on_select=self._on_select)
+        else:
+            self._aplicar_filtros()
+
         shown = self._table.rendered_rows
         extra = f" — mostrando {shown} por rendimiento" if shown < total else ""
         self._status.configure(
-            text=f"{total} registro(s){extra}",
+            text=f"{shown} estudiante(s){extra}",
             text_color=COLORS["text_secondary"],
         )
 
@@ -146,51 +174,36 @@ class AsistenciaView(ctk.CTkFrame):
         except (ValueError, IndexError):
             self._selected_id = None
 
+    def _aplicar_filtros(self) -> None:
+        rows = list(self._all_rows)
+        if self._active_estado != "Todos":
+            idx = {"Presente": 2, "Ausente": 3, "Tardanza": 4, "Justificado": 5}[self._active_estado]
+            rows = [r for r in rows if int(r[idx]) > 0]
+        if self._active_query:
+            q = self._active_query.lower()
+            rows = [r for r in rows if any(q in str(c).lower() for c in r)]
+        self._table.load_data(rows, on_select=self._on_select)
+
     def _on_search(self, query: str) -> None:
-        if not query:
-            self._table.load_data(self._all_rows, on_select=self._on_select)
-            return
-        q = query.lower()
-        filtered = [r for r in self._all_rows if any(q in str(c).lower() for c in r)]
-        self._table.load_data(filtered, on_select=self._on_select)
+        self._active_query = query or ""
+        self._aplicar_filtros()
 
     def _on_filtro(self, estado: str) -> None:
-        if estado == "Todos":
-            self._table.load_data(self._all_rows, on_select=self._on_select)
-        else:
-            filtered = [r for r in self._all_rows if r[3] == estado]
-            self._table.load_data(filtered, on_select=self._on_select)
+        self._active_estado = estado
+        self._aplicar_filtros()
+
+    def _on_filtro_mes(self, mes: str) -> None:
+        self._active_mes = mes
+        self.refresh()
 
     def _abrir_form(self) -> None:
         FormularioAsistencia(self, on_save=self.refresh)
 
     def _eliminar(self) -> None:
         if not self._selected_id:
-            self._mostrar_aviso("Selecciona un registro primero.")
+            self._mostrar_aviso("Selecciona un estudiante primero.")
             return
-        dialogo = ctk.CTkToplevel(self)
-        dialogo.title("Confirmar eliminación")
-        dialogo.geometry("360x160")
-        dialogo.grab_set()
-        dialogo.protocol("WM_DELETE_WINDOW", dialogo.destroy)
-
-        ctk.CTkLabel(
-            dialogo,
-            text="¿Eliminar este registro de asistencia?\nEsta acción no se puede deshacer.",
-            font=FONTS["body"],
-            text_color=COLORS["text_primary"],
-        ).pack(pady=24)
-        btn_frame = ctk.CTkFrame(dialogo, fg_color="transparent")
-        btn_frame.pack()
-
-        def confirmar() -> None:
-            self._app.services["asistencia"].eliminar(self._selected_id)
-            self._selected_id = None
-            dialogo.destroy()
-            self.refresh()
-
-        ActionButton(btn_frame, "Eliminar", style="danger", command=confirmar).pack(side="left", padx=8)
-        ActionButton(btn_frame, "Cancelar", style="secondary", command=dialogo.destroy).pack(side="left", padx=8)
+        self._mostrar_aviso("La eliminación se gestiona desde el registro detallado del estudiante.")
 
     def _mostrar_aviso(self, msg: str) -> None:
         dlg = ctk.CTkToplevel(self)
@@ -210,7 +223,7 @@ class FormularioAsistencia(ctk.CTkToplevel):
         self._on_save = on_save
         self._preset_id = estudiante_id
         self.title("Registrar Asistencia")
-        self.geometry("480x400")
+        self.geometry("480x550")
         self.grab_set()
         self.configure(fg_color=COLORS["bg_main"])
         self._build()
@@ -241,7 +254,13 @@ class FormularioAsistencia(ctk.CTkToplevel):
                          text_color=COLORS["text_secondary"]).pack(anchor="w", pady=(10, 2))
 
         lbl("Estudiante *")
-        self._est = ctk.CTkComboBox(form, values=est_opts, height=38, font=FONTS["body"])
+        self._est = AutocompleteEntry(
+            form,
+            values=est_opts,
+            height=38,
+            font=FONTS["body"],
+            placeholder_text="Escribe el nombre o ID del estudiante",
+        )
         self._est.pack(fill="x")
         if self._preset_id:
             for opt in est_opts:
@@ -277,10 +296,10 @@ class FormularioAsistencia(ctk.CTkToplevel):
 
     def _guardar(self) -> None:
         try:
-            est_sel = self._est.get()
+            est_sel = self._est.get_selected_value()
             if not est_sel:
                 raise ValueError("Selecciona un estudiante.")
-            eid = int(est_sel.split(" - ")[0])
+            eid = int(est_sel.split(" - ", 1)[0])
             try:
                 app = self.master._app
             except AttributeError:

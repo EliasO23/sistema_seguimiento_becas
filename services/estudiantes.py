@@ -52,6 +52,7 @@ class Estudiante:
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "Estudiante":
+        estado = str(d.get("Estado", "Activo") or "Activo")
         return cls(
             id=int(d.get("ID", 0)) if d.get("ID") else None,
             codigo=str(d.get("Codigo", "") or ""),
@@ -64,9 +65,18 @@ class Estudiante:
             telefono=str(d.get("Telefono", "") or ""),
             fecha_ingreso=str(d.get("FechaIngreso", "") or ""),
             monitor=str(d.get("Monitor", "") or ""),
-            estado=str(d.get("Estado", "Activo") or "Activo"),
+            estado=cls._normalizar_estado(estado),
             fotografia=str(d.get("Fotografia", "") or ""),
         )
+
+    @staticmethod
+    def _normalizar_estado(estado: str) -> str:
+        estado = (estado or "").strip()
+        if estado in {"Inactivo", "Egresado", "Retirado"}:
+            return "Retirado"
+        if estado in {"Activo", "Suspendido"}:
+            return estado
+        return estado
 
 
 class EstudiantesService:
@@ -156,8 +166,7 @@ class EstudiantesService:
         return {
             "total": len(todos),
             "activos": por_estado.get("Activo", 0),
-            "inactivos": por_estado.get("Inactivo", 0),
+            "retirados": por_estado.get("Retirado", 0),
             "suspendidos": por_estado.get("Suspendido", 0),
-            "egresados": por_estado.get("Egresado", 0),
             "por_estado": por_estado,
         }

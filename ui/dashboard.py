@@ -90,7 +90,7 @@ class DashboardView(ctk.CTkFrame):
                 pct_asi, pct_vol, total_seg, prom_aca, indicadores,
             ))
         except Exception as exc:
-            self.after(0, lambda: self._show_error(str(exc)))
+            self.after(0, lambda exc=exc: self._show_error(str(exc)))
 
     def _render(self, est_stats, resumen, top, en_riesgo,
                 pct_asi, pct_vol, total_seg, prom_aca, indicadores) -> None:
@@ -459,13 +459,13 @@ class DashboardView(ctk.CTkFrame):
                 ),
             )
         except Exception as exc:
-            self.after(0, lambda: self._show_error(str(exc)))
+            self.after(0, lambda exc=exc: self._show_error(str(exc)))
 
     def _render(self, est_stats, resumen, top, en_riesgo,
                 pct_asi, pct_vol, total_seg, prom_aca, indicadores) -> None:
         cards_data = [
-            ("Total Becados", str(est_stats["total"]), "Estudiantes registrados", "👥", COLORS["primary"]),
-            ("Activos", str(est_stats["activos"]), "En programa activo", "✅", COLORS["success"]),
+            ("Total Estudiantes", str(est_stats["total"]), "Estudiantes registrados", "👥", COLORS["primary"]),
+            ("Becados", str(est_stats["activos"]), "En programa activo", "✅", COLORS["success"]),
             ("Asistencia Prom.", f"{pct_asi:.1f}%", "Promedio general", "📅", COLORS["info"]),
             ("Promedio Acad.", f"{prom_aca:.2f}", "Calificación promedio", "📚", COLORS["warning"]),
             ("Voluntariado", f"{pct_vol:.1f}h", "Horas por estudiante", "🤝", "#8B5CF6"),
