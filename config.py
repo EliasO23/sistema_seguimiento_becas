@@ -6,6 +6,9 @@ Configuración global del sistema.
 from pathlib import Path
 from typing import Dict, Any
 
+# ── Importar carreras y universidades ────────────────────────────────────────
+from data.carreras_universidades import universidades as _universidades_dict
+
 # ── Rutas base ──────────────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
@@ -141,26 +144,14 @@ LOG_FILE = BASE_DIR / "sistema_becas.log"
 LOG_LEVEL = "INFO"
 
 # ── Universidades y carreras de ejemplo ─────────────────────────────────────
-UNIVERSIDADES = [
-    "Universidad de El Salvador",
-    "Universidad Centroamericana José Simeón Cañas",
-    "Universidad Tecnológica de El Salvador",
-    "Universidad Don Bosco",
-    "Universidad Francisco Gavidia",
-]
+# Importadas desde data/carreras_universidades.py
+UNIVERSIDADES = list(_universidades_dict.keys())
 
-CARRERAS = [
-    "Ingeniería en Sistemas Informáticos",
-    "Licenciatura en Ciencias de la Computación",
-    "Ingeniería Industrial",
-    "Licenciatura en Administración de Empresas",
-    "Ingeniería Civil",
-    "Licenciatura en Contaduría Pública",
-    "Medicina",
-    "Arquitectura",
-    "Psicología",
-    "Derecho",
-]
+# Extraer todas las carreras únicas de todas las universidades
+_carreras_set = set()
+for carreras in _universidades_dict.values():
+    _carreras_set.update(carreras)
+CARRERAS = sorted(list(_carreras_set))
 
 TIPOS_SEGUIMIENTO = [
     "Reunión presencial",

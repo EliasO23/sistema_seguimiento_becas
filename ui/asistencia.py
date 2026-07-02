@@ -43,7 +43,6 @@ class AsistenciaView(ctk.CTkFrame):
         btn_frame = ctk.CTkFrame(header, fg_color="transparent")
         btn_frame.pack(side="right", padx=24, pady=12)
         ActionButton(btn_frame, "➕ Registrar", command=self._abrir_form).pack(side="left", padx=4)
-        ActionButton(btn_frame, "🗑 Eliminar", style="danger", command=self._eliminar).pack(side="left", padx=4)
 
         # Panel superior con stats
         top = ctk.CTkFrame(self, fg_color=COLORS["bg_main"])
@@ -55,7 +54,7 @@ class AsistenciaView(ctk.CTkFrame):
         self._stats_frame.pack(fill="x", pady=(0, 12))
         self._stats_lbl = ctk.CTkLabel(self._stats_frame,
                                         text="Asistencia promedio global: Calculando...",
-                                        font=FONTS["body"],
+                                        font=FONTS["heading_md"],
                                         text_color=COLORS["text_primary"])
         self._stats_lbl.pack(padx=16, pady=12)
 
@@ -170,9 +169,11 @@ class AsistenciaView(ctk.CTkFrame):
 
     def _on_select(self, row_idx, row_data) -> None:
         try:
-            self._selected_id = int(row_data[0])
+            from ui.perfil import PerfilEstudianteView
+            estudiante_id = int(row_data[0])
+            PerfilEstudianteView(self._app, estudiante_id)
         except (ValueError, IndexError):
-            self._selected_id = None
+            pass
 
     def _aplicar_filtros(self) -> None:
         rows = list(self._all_rows)
