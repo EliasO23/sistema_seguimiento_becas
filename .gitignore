@@ -1,8 +1,17 @@
+# Directorios generados por la aplicación
 reports/*
 !reports/.gitkeep
 data/backups/*
 !data/backups/.gitkeep
 exports/*
 !exports/.gitkeep
+
+# Archivos de pruebas
 tests/
+
+# Archivos generados por Python
+__pycache__/
+*.py[cod]
+
+# Archivos de registro
 *.log
