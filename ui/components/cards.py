@@ -156,7 +156,7 @@ class KPICard(ctk.CTkFrame):
             )
             self._icon_label.pack(side="left", padx=(0, 8))
         self._title_label = ctk.CTkLabel(
-            header, text=title, font=FONTS["body_sm"],
+            header, text=title, font=FONTS["body"],
             text_color=COLORS["text_secondary"],
         )
         self._title_label.pack(side="left")
@@ -173,7 +173,7 @@ class KPICard(ctk.CTkFrame):
         if subtitle:
             self._subtitle_label = ctk.CTkLabel(
                 self._content, text=subtitle,
-                font=FONTS["caption"],
+                font=FONTS["body_sm"],
                 text_color=COLORS["text_light"],
             )
             self._subtitle_label.pack(anchor="w")
@@ -346,6 +346,18 @@ class ActionButton(ctk.CTkButton):
             "border_width": 1,
             "border_color": "white",
         },
+        "header_action": {
+            "fg_color": "white",
+            "hover_color": "white",
+            "text_color": "black",
+            "border_width": 0,
+        },
+        "pdf_transparent": {
+            "fg_color": "transparent",
+            "hover_color": "#1249BF",
+            "text_color": "white",
+            "border_width": 0,
+        },
     }
 
     def __init__(self, master, text: str, style: str = "primary", **kwargs) -> None:
@@ -355,11 +367,14 @@ class ActionButton(ctk.CTkButton):
             if key in kwargs:
                 style_cfg[key] = kwargs.pop(key)
 
+        # Allow callers to override height without causing duplicate-kwarg errors
+        height_val = kwargs.pop("height", 36)
+
         super().__init__(
             master,
             text=text,
             corner_radius=8,
-            height=36,
+            height=height_val,
             font=FONTS["body_sm"],
             **style_cfg,
             **kwargs,
@@ -434,12 +449,11 @@ class DataTable(ctk.CTkFrame):
                              )
 
         for i, col in enumerate(self._columns):
-            self._tree.heading(col, text=col)
-            width = max(110, min(180, len(col) * 12))
-            self._tree.column(col, width=width, anchor="w", stretch=True)
+            self._tree.heading(col, text=col, anchor="w")
+            self._tree.column(col, anchor="w", stretch=True)
 
         self._tree.tag_configure("odd", background=COLORS["bg_card"])
-        self._tree.tag_configure("even", background=COLORS["bg_main"])
+        self._tree.tag_configure("even", background=COLORS["bg_line_table"])
         self._tree.bind("<<TreeviewSelect>>", self._handle_tree_select)
 
         self._tree.grid(row=0, column=0, sticky="nsew")
@@ -452,7 +466,7 @@ class DataTable(ctk.CTkFrame):
         """Carga filas en la tabla."""
         self._on_select = on_select
         self._total_rows = len(rows)
-        self._rows = [list(map(lambda c: str(c or ""), row)) for row in rows]
+        self._rows = [list(map(lambda c: "-" if (c is None or str(c).lower() == "nan") else str(c or ""), row)) for row in rows]
 
         if not self._tree:
             return
@@ -465,6 +479,53 @@ class DataTable(ctk.CTkFrame):
             self._tree.insert("", "end", iid=str(row_idx), values=row_data, tags=(tag,))
 
         self._rendered_rows = len(self._rows)
+        self._adjust_column_widths()
+
+    def _adjust_column_widths(self) -> None:
+        """Ajusta el ancho de las columnas basado en el contenido y ancho disponible del contenedor."""
+        if not self._tree or not self._rows:
+            return
+
+        # Forzar actualización para obtener el ancho real del Treeview
+        self._tree.update_idletasks()
+        container_width = self._tree.winfo_width()
+
+        if container_width <= 1:  # Si no tiene ancho válido aún
+            container_width = 500  # Valor por defecto
+
+        # Calcular ancho necesario para cada columna (basado en contenido)
+        column_widths = []
+        total_content_width = 0
+
+        for i, col in enumerate(self._columns):
+            # Calcular ancho basado en el encabezado
+            header_width = len(col) * 8 + 20
+
+            # Encontrar el contenido más ancho en esa columna
+            max_content_width = 0
+            for row in self._rows:
+                if i < len(row):
+                    content_width = len(str(row[i])) * 8 + 20
+                    max_content_width = max(max_content_width, content_width)
+
+            # El ancho necesario es el máximo entre encabezado y contenido
+            needed_width = max(header_width, max_content_width)
+            needed_width = max(50, needed_width)  # Mínimo de 50px
+
+            column_widths.append(needed_width)
+            total_content_width += needed_width
+
+        # Distribuir el ancho disponible proporcionalmente
+        reserved_width = 30  # Espacio para scrollbar y bordes
+        available_width = max(container_width - reserved_width, 100)
+
+        for i, col in enumerate(self._columns):
+            # Calcular el ancho proporcional basado en el contenido relativo
+            proportion = column_widths[i] / total_content_width if total_content_width > 0 else 1 / len(self._columns)
+            final_width = int(available_width * proportion)
+            final_width = max(50, final_width)  # Mínimo de 50px
+
+            self._tree.column(col, width=final_width)
 
     @property
     def total_rows(self) -> int:

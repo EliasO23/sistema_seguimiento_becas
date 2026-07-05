@@ -144,7 +144,9 @@ class ExcelManager:
             wb = load_workbook(self.filepath)
             try:
                 ws = wb[sheet_name]
-                columns = SHEET_COLUMNS[sheet_name]
+                columns = [cell.value for cell in ws[1] if cell.value is not None]
+                if not columns:
+                    columns = SHEET_COLUMNS[sheet_name]
                 row_values = [data.get(col) for col in columns]
                 ws.append(row_values)
                 self._style_data_row(ws, ws.max_row, len(columns))
@@ -167,7 +169,9 @@ class ExcelManager:
             wb = load_workbook(self.filepath)
             try:
                 ws = wb[sheet_name]
-                columns = SHEET_COLUMNS[sheet_name]
+                columns = [cell.value for cell in ws[1] if cell.value is not None]
+                if not columns:
+                    columns = SHEET_COLUMNS[sheet_name]
                 id_col = columns.index("ID") + 1
 
                 for row in ws.iter_rows(min_row=2):

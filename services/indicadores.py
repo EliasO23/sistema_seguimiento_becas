@@ -42,6 +42,7 @@ class IndicadorEstudiante:
     pct_asistencia: float = 0.0
     horas_voluntariado: float = 0.0
     promedio_academico: float = 0.0
+    materias_reprobadas: int = 0
     dias_sin_seguimiento: int = 0
 
 
@@ -77,9 +78,12 @@ class IndicadoresService:
         ren_stats = self._ren.calcular_estadisticas(estudiante_id)
         prom = ren_stats.get("promedio", 0.0)
         ind.promedio_academico = prom
+        ind.materias_reprobadas = int(ren_stats.get("materias_reprobadas", 0) or 0)
         ind.score_promedio = min(prom / 10.0, 1.0)
 
-        if prom < PROMEDIO_MINIMO and prom > 0:
+        if prom == 0:
+            ind.alertas.append("⚠ Sin promedio registrado")
+        elif prom < PROMEDIO_MINIMO:
             ind.alertas.append(f"⚠ Promedio bajo: {prom:.1f}")
 
         # ── Voluntariado ──────────────────────────────────────────────────────
@@ -100,7 +104,10 @@ class IndicadoresService:
         ind.score_seguimiento = max(0.0, 1.0 - dias / 90.0)
 
         if dias > DIAS_SIN_SEGUIMIENTO_ALERTA:
-            ind.alertas.append(f"⚠ Sin seguimiento hace {dias} días")
+            if dias >= 9999:
+                ind.alertas.append("⚠ Sin seguimiento registrado")
+            else:
+                ind.alertas.append(f"⚠ Sin seguimiento hace {dias} días")
 
         # ── Índice de riesgo compuesto ────────────────────────────────────────
         # "Riesgo" = 1 - score (mayor riesgo = menor score)

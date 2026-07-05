@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Optional
 import customtkinter as ctk
 
 from config import COLORS, FONTS, UNIVERSIDADES, CARRERAS, ESTADOS_ESTUDIANTE
+from data.carreras_universidades import universidades as UNIVERSIDADES_MAP
 from services.estudiantes import Estudiante
 from ui.components.cards import (
     SectionHeader, SearchBar, ActionButton, DataTable, RiskBadge, KPICard
@@ -106,6 +107,11 @@ class EstudiantesView(ctk.CTkFrame):
             width=130, height=36,
             font=FONTS["body_sm"],
             command=self._on_filtro,
+            border_color=COLORS["border"],
+            button_color=COLORS["primary_light"],
+            button_hover_color=COLORS["primary"],
+            dropdown_fg_color="white",
+            dropdown_hover_color=COLORS["primary_light"],
         )
         self._filtro_estado.set("Todos")
         self._filtro_estado.pack(side="left")
@@ -252,7 +258,8 @@ class FormularioEstudiante(ctk.CTkToplevel):
         self.title("Editar Estudiante" if self._is_edit else "Nuevo Estudiante")
         self.geometry("680x620")
         self.grab_set()
-        self.resizable(False, False)
+        self.resizable(True, True)
+        self.minsize(690, 620)
         self.configure(fg_color=COLORS["bg_main"])
 
         self._fields: dict = {}
@@ -282,7 +289,7 @@ class FormularioEstudiante(ctk.CTkToplevel):
             ("Correo", "correo", False),
             ("Teléfono", "telefono", False),
             ("Ciclo", "ciclo", False),
-            ("Fecha Ingreso (YYYY-MM-DD)", "fecha_ingreso", False),
+            ("Fecha Ingreso (AAAA-MM-DD)", "fecha_ingreso", False),
             ("Monitor", "monitor", False),
         ]
 
@@ -293,27 +300,68 @@ class FormularioEstudiante(ctk.CTkToplevel):
             scroll.grid_columnconfigure(0, weight=1)
             scroll.grid_columnconfigure(1, weight=1)
 
-            ctk.CTkLabel(frame, text=label, font=FONTS["body_sm"],
+            ctk.CTkLabel(frame, text=label, font=FONTS["body"],
                          text_color=COLORS["text_secondary"]).pack(anchor="w")
             entry = ctk.CTkEntry(frame, height=38, font=FONTS["body"],
                                  border_color=COLORS["border"], corner_radius=8)
             entry.pack(fill="x")
             self._fields[field] = entry
 
-        # Selects
+        # Selects (cascading dropdown: Universidad -> Carrera)
         row_sel = (len(campos) + 1) // 2
-        for i, (label, field, options) in enumerate([
-            ("Universidad", "universidad", UNIVERSIDADES),
-            ("Carrera", "carrera", CARRERAS),
-            ("Estado", "estado", ESTADOS_ESTUDIANTE),
-        ]):
-            frame = ctk.CTkFrame(scroll, fg_color="transparent")
-            frame.grid(row=row_sel + i // 2, column=i % 2, padx=10, pady=6, sticky="ew")
-            ctk.CTkLabel(frame, text=label, font=FONTS["body_sm"],
-                         text_color=COLORS["text_secondary"]).pack(anchor="w")
-            combo = ctk.CTkComboBox(frame, values=options, height=38, font=FONTS["body"])
-            combo.pack(fill="x")
-            self._fields[field] = combo
+        # Universidad (left)
+        frame_univ = ctk.CTkFrame(scroll, fg_color="transparent")
+        frame_univ.grid(row=row_sel + 0, column=0, padx=10, pady=6, sticky="ew")
+        ctk.CTkLabel(frame_univ, text="Universidad", font=FONTS["body"],
+                     text_color=COLORS["text_secondary"]).pack(anchor="w")
+        universidades_vals = list(UNIVERSIDADES_MAP.keys())
+        combo_univ = ctk.CTkComboBox(frame_univ, values=universidades_vals, height=38, font=FONTS["body"], 
+                                     border_color=COLORS["border"],
+                                     button_color=COLORS["primary_light"],
+                                     button_hover_color=COLORS["primary"],
+                                     dropdown_fg_color="white",
+                                     dropdown_hover_color=COLORS["primary_light"],
+                                     command=self._on_universidad_select)
+        combo_univ.pack(fill="x")
+        self._fields["universidad"] = combo_univ
+
+        # Carrera (right) - inicialmente deshabilitado
+        frame_carrera = ctk.CTkFrame(scroll, fg_color="transparent")
+        frame_carrera.grid(row=row_sel + 0, column=1, padx=10, pady=6, sticky="ew")
+        ctk.CTkLabel(frame_carrera, text="Carrera", font=FONTS["body"],
+                     text_color=COLORS["text_secondary"]).pack(anchor="w")
+        combo_carrera = ctk.CTkComboBox(frame_carrera, values=["Seleccione primero una universidad"],
+                                        height=38, font=FONTS["body"],
+                                        border_color=COLORS["border"],
+                                        button_color=COLORS["primary_light"],
+                                        button_hover_color=COLORS["primary"],
+                                        dropdown_fg_color="white",
+                                        dropdown_hover_color=COLORS["primary_light"],
+                                        )
+        combo_carrera.pack(fill="x")
+        try:
+            combo_carrera.configure(state="disabled")
+        except Exception:
+            # Fallback: if configure/state not supported, ignore silently
+            pass
+        self._fields["carrera"] = combo_carrera
+
+        # Estado (below, left)
+        frame_estado = ctk.CTkFrame(scroll, fg_color="transparent")
+        frame_estado.grid(row=row_sel + 1, column=0, padx=10, pady=6, sticky="ew")
+        ctk.CTkLabel(frame_estado, text="Estado", font=FONTS["body"],
+                     text_color=COLORS["text_secondary"]).pack(anchor="w")
+        combo_estado = ctk.CTkComboBox(frame_estado, 
+                                       values=ESTADOS_ESTUDIANTE, 
+                                       height=38, font=FONTS["body"], 
+                                       border_color=COLORS["border"],
+                                       button_color=COLORS["primary_light"],
+                                       button_hover_color=COLORS["primary"],
+                                       dropdown_fg_color="white",
+                                       dropdown_hover_color=COLORS["primary_light"],
+                                       )
+        combo_estado.pack(fill="x")
+        self._fields["estado"] = combo_estado
 
         # Pre-rellenar si es edición
         if self._is_edit and self._estudiante:
@@ -331,6 +379,15 @@ class FormularioEstudiante(ctk.CTkToplevel):
                         widget.insert(0, str(value))
                     elif isinstance(widget, ctk.CTkComboBox):
                         widget.set(str(value))
+            # Si es edición, asegurarse de poblar las carreras para la universidad seleccionada
+            if e.universidad:
+                self._populate_carreras_for_universidad(e.universidad)
+                carr_widget = self._fields.get("carrera")
+                if carr_widget and e.carrera:
+                    try:
+                        carr_widget.set(str(e.carrera))
+                    except Exception:
+                        pass
 
         # Error label
         self._error_lbl = ctk.CTkLabel(scroll, text="", font=FONTS["body_sm"],
@@ -345,6 +402,56 @@ class FormularioEstudiante(ctk.CTkToplevel):
         btn_frame.pack_propagate(False)
         ActionButton(btn_frame, "💾 Guardar", command=self._guardar).pack(side="right", padx=16, pady=12)
         ActionButton(btn_frame, "Cancelar", style="secondary", command=self.destroy).pack(side="right", padx=4, pady=12)
+
+    def _on_universidad_select(self, universidad: str) -> None:
+        """Callback cuando el usuario selecciona una universidad: cargar carreras."""
+        carreras = UNIVERSIDADES_MAP.get(universidad, [])
+        carr_widget = self._fields.get("carrera")
+        if not carr_widget:
+            return
+        try:
+            if carreras:
+                carr_widget.configure(state="normal")
+                carr_widget.configure(values=carreras)
+                try:
+                    carr_widget.set("")
+                except Exception:
+                    pass
+            else:
+                carr_widget.configure(values=["No hay carreras disponibles"])
+                try:
+                    carr_widget.set("No hay carreras disponibles")
+                except Exception:
+                    pass
+                try:
+                    carr_widget.configure(state="disabled")
+                except Exception:
+                    pass
+        except Exception:
+            # No bloquear la UI por errores en el widget
+            pass
+
+    def _populate_carreras_for_universidad(self, universidad: str) -> None:
+        """Poblar el combo de carreras para una universidad dada (uso en edición)."""
+        carreras = UNIVERSIDADES_MAP.get(universidad, [])
+        carr_widget = self._fields.get("carrera")
+        if not carr_widget:
+            return
+        if carreras:
+            try:
+                carr_widget.configure(state="normal")
+                carr_widget.configure(values=carreras)
+            except Exception:
+                try:
+                    carr_widget.configure(values=carreras)
+                except Exception:
+                    pass
+        else:
+            try:
+                carr_widget.configure(values=["No hay carreras disponibles"])
+                carr_widget.configure(state="disabled")
+            except Exception:
+                pass
 
     def _get(self, field: str) -> str:
         w = self._fields.get(field)

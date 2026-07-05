@@ -239,7 +239,7 @@ class FormularioVoluntariado(ctk.CTkToplevel):
         est_opts = [f"{e.id} - {e.nombre_completo}" for e in estudiantes]
 
         def lbl(text):
-            ctk.CTkLabel(form, text=text, font=FONTS["body_sm"],
+            ctk.CTkLabel(form, text=text, font=FONTS["body"],
                          text_color=COLORS["text_secondary"]).pack(anchor="w", pady=(10, 2))
 
         lbl("Estudiante *")
@@ -258,20 +258,20 @@ class FormularioVoluntariado(ctk.CTkToplevel):
                     break
 
         lbl("Actividad *")
-        self._actividad = ctk.CTkEntry(form, height=38, font=FONTS["body"])
+        self._actividad = ctk.CTkEntry(form, height=38, font=FONTS["body"], border_color=COLORS["border"])
         self._actividad.pack(fill="x")
 
         lbl("Horas realizadas *")
-        self._horas = ctk.CTkEntry(form, height=38, font=FONTS["body"])
+        self._horas = ctk.CTkEntry(form, height=38, font=FONTS["body"], border_color=COLORS["border"])
         self._horas.pack(fill="x")
 
         lbl("Fecha *")
-        self._fecha = ctk.CTkEntry(form, height=38, font=FONTS["body"])
+        self._fecha = ctk.CTkEntry(form, height=38, font=FONTS["body"], border_color=COLORS["border"])
         self._fecha.insert(0, datetime.now().strftime("%Y-%m-%d"))
         self._fecha.pack(fill="x")
 
         lbl("Observación")
-        self._obs = ctk.CTkEntry(form, height=38, font=FONTS["body"])
+        self._obs = ctk.CTkEntry(form, height=38, font=FONTS["body"], border_color=COLORS["border"])
         self._obs.pack(fill="x")
 
         self._error = ctk.CTkLabel(form, text="", font=FONTS["body_sm"],

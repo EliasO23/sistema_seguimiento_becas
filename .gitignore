@@ -1,13 +1,19 @@
 # Directorios generados por la aplicación
 reports/*
 !reports/.gitkeep
+!reports/reporte_7_20260704_233638.pdf
+!reports/reporte_general_20260704_203348.pdf
+!reports/reporte_riesgo_20260704_203351.pdf
+
 data/backups/*
 !data/backups/.gitkeep
+
 exports/*
 !exports/.gitkeep
 
 # Archivos de pruebas
 tests/
+temp_config_test.py
 
 # Archivos generados por Python
 __pycache__/

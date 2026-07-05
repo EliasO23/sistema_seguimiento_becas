@@ -19,6 +19,7 @@ from reportlab.platypus import (
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
 from config import REPORTS_DIR, HORAS_VOLUNTARIADO_REQUERIDAS
+from config import PROMEDIO_MINIMO, PORCENTAJE_ASISTENCIA_MINIMO
 from services.estudiantes import Estudiante
 from services.indicadores import IndicadorEstudiante
 from utils.logger import logger
@@ -75,6 +76,107 @@ class ReportesService:
             "Alerta", parent=self.styles["Normal"],
             fontSize=10, textColor=ROJO, leading=15,
         ))
+        self.styles.add(ParagraphStyle(
+            "InterpretacionResumen",
+            parent=self.styles["Normal"],
+            fontSize=10.5,
+            textColor=NEGRO,
+            leading=15,
+            alignment=TA_LEFT,
+            spaceBefore=6,
+            spaceAfter=8,
+        ))
+
+    def _datos_resumen_ejecutivo(
+        self,
+        indicadores: list,
+        resumen: dict,
+        total_estudiantes: Optional[int] = None,
+        activos_count: Optional[int] = None,
+        promedio_academico_global: Optional[float] = None,
+        asistencia_promedio_global: Optional[float] = None,
+    ) -> tuple[list, str]:
+        total_estudiantes = total_estudiantes if total_estudiantes is not None else len(indicadores)
+        activos_count = activos_count if activos_count is not None else len(indicadores)
+        riesgo_alto = int(resumen.get("en_riesgo_alto", 0) or 0)
+        prom_academico = (
+            promedio_academico_global
+            if promedio_academico_global is not None
+            else float(resumen.get("promedio_academico", 0) or 0)
+        )
+        asistencia = (
+            asistencia_promedio_global
+            if asistencia_promedio_global is not None
+            else float(resumen.get("pct_asistencia_promedio", 0) or 0)
+        )
+
+        header = [
+            "Estudiantes",
+            "Activos",
+            "Riesgo Alto",
+            "Promedio Académico",
+            "Asistencia",
+        ]
+        values = [
+            str(total_estudiantes),
+            str(activos_count),
+            str(riesgo_alto),
+            f"{prom_academico:.2f}",
+            f"{asistencia:.1f}%",
+        ]
+        interpretacion = (
+            f"El programa mantiene un {asistencia:.1f}% de asistencia promedio "
+            f"y un rendimiento académico de {prom_academico:.2f}. "
+            f"Se identifican {riesgo_alto} {'estudiante' if riesgo_alto == 1 else 'estudiantes'} "
+            "en condición de riesgo que requieren seguimiento prioritario."
+        )
+        return [header, values], interpretacion
+
+    def _hallazgos_clave(self, indicadores: list) -> list:
+        total = len(indicadores)
+        estudiantes_menos_asis_requerida = sum(
+            1 for ind in indicadores
+            if getattr(ind, "pct_asistencia", 0.0) < PORCENTAJE_ASISTENCIA_MINIMO
+        )
+        porcentaje_cumplen_voluntariado = (
+            round(
+                sum(
+                    1 for ind in indicadores
+                    if getattr(ind, "horas_voluntariado", 0.0) >= HORAS_VOLUNTARIADO_REQUERIDAS
+                ) / total * 100,
+                1,
+            ) if total else 0.0
+        )
+        estudiantes_materias_reprobadas = sum(
+            1 for ind in indicadores if getattr(ind, "materias_reprobadas", 0) > 0
+        )
+        promedio_horas_voluntariado = (
+            round(
+                sum(getattr(ind, "horas_voluntariado", 0.0) for ind in indicadores) / total,
+                1,
+            ) if total else 0.0
+        )
+
+        return [
+            Paragraph("Hallazgos Clave", self.styles["Subtitulo"]),
+            Paragraph(
+                f"• {estudiantes_menos_asis_requerida} estudiantes no cumplen con la asistencia requerida de {PORCENTAJE_ASISTENCIA_MINIMO:.0f}%",
+                self.styles["CuerpoNormal"],
+            ),
+            Paragraph(
+                f"• {porcentaje_cumplen_voluntariado:.1f}% cumplen con las horas de voluntariado.",
+                self.styles["CuerpoNormal"],
+            ),
+            Paragraph(
+                f"• {estudiantes_materias_reprobadas} estudiantes tienen materias reprobadas.",
+                self.styles["CuerpoNormal"],
+            ),
+            Paragraph(
+                f"• Se registra un promedio de {promedio_horas_voluntariado:.1f} horas de voluntariado por estudiante.",
+                self.styles["CuerpoNormal"],
+            ),
+            Spacer(1, 0.5 * cm),
+        ]
 
     # ── Reporte individual ────────────────────────────────────────────────────
 
@@ -304,6 +406,10 @@ class ReportesService:
         indicadores: list,
         resumen: dict,
         filename: Optional[str] = None,
+        total_estudiantes: Optional[int] = None,
+        activos_count: Optional[int] = None,
+        promedio_academico_global: Optional[float] = None,
+        asistencia_promedio_global: Optional[float] = None,
     ) -> Path:
         """Genera reporte consolidado de todos los estudiantes."""
         if not filename:
@@ -329,26 +435,15 @@ class ReportesService:
         story.append(Paragraph("Resumen Ejecutivo", self.styles["Subtitulo"]))
         story.append(Spacer(1, 0.3 * cm))
 
-        voluntariado_completo = sum(
-            1 for ind in indicadores if ind.horas_voluntariado >= HORAS_VOLUNTARIADO_REQUERIDAS
+        kpi_data, interpretacion = self._datos_resumen_ejecutivo(
+            indicadores=indicadores,
+            resumen=resumen,
+            total_estudiantes=total_estudiantes,
+            activos_count=activos_count,
+            promedio_academico_global=promedio_academico_global,
+            asistencia_promedio_global=asistencia_promedio_global,
         )
-        kpi_data = [
-            [
-                "Becados Activos",
-                "Rendimiento",
-                "Asistencia Prom.",
-                "Horas Voluntariado",
-                "Voluntariado Completado",
-            ],
-            [
-                str(resumen.get("total", 0)),
-                f"{resumen.get('promedio_academico', 0):.2f}",
-                f"{resumen.get('pct_asistencia_promedio', 0):.1f}%",
-                f"{resumen.get('horas_voluntariado_promedio', 0):.1f}",
-                str(voluntariado_completo),
-            ],
-        ]
-        t = Table(kpi_data, colWidths=[3*cm, 3.2*cm, 3.2*cm, 3.2*cm, 4.4*cm])
+        t = Table(kpi_data, colWidths=[3*cm, 3*cm, 3*cm, 4*cm, 4*cm])
         t.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), AZUL),
             ("TEXTCOLOR", (0, 0), (-1, 0), BLANCO),
@@ -364,7 +459,9 @@ class ReportesService:
             ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
         ]))
         story.append(t)
-        story.append(Spacer(1, 0.8 * cm))
+        story.append(Spacer(1, 0.3 * cm))
+        story.append(Paragraph(interpretacion, self.styles["InterpretacionResumen"]))
+        story.append(Spacer(1, 0.5 * cm))
 
         # Nueva sección de indicadores
         story.append(Paragraph("Indicadores", self.styles["Subtitulo"]))
@@ -380,53 +477,85 @@ class ReportesService:
         reprobaron = sum(1 for r in rendimiento if r.promedio_academico < 7.0)
         menor_promedio = min((r.promedio_academico for r in rendimiento), default=0.0)
 
-        tabla_unica_data = [
-            ["Riesgo Bajo", f"{riesgo_bajo} ({riesgo_bajo / total_riesgo * 100:.1f}%)", "Promedio General de Notas", f"{promedio_general:.2f}"],
-            ["Riesgo Medio", f"{riesgo_medio} ({riesgo_medio / total_riesgo * 100:.1f}%)", "Becados con Materias Reprobadas", str(reprobaron)],
-            ["Riesgo Alto", f"{riesgo_alto} ({riesgo_alto / total_riesgo * 100:.1f}%)", "Menor promedio registrado", f"{menor_promedio:.2f}"],
+        # Dividir la tabla de indicadores en dos tablas separadas y colocarlas lado a lado
+        left_table_data = [
+            ["Distribucion de Riesgo", ""],
+            ["Riesgo Bajo", f"{riesgo_bajo} ({riesgo_bajo / total_riesgo * 100:.1f}%)"],
+            ["Riesgo Medio", f"{riesgo_medio} ({riesgo_medio / total_riesgo * 100:.1f}%)"],
+            ["Riesgo Alto", f"{riesgo_alto} ({riesgo_alto / total_riesgo * 100:.1f}%)"],
         ]
-        tabla_unica = Table(
-            tabla_unica_data,
-            colWidths=[4.0*cm, 3.0*cm, 6.5*cm, 4*cm],
-            repeatRows=0,
-        )
-        tabla_unica.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (0, -1), AZUL),
-            ("BACKGROUND", (2, 0), (2, -1), AZUL),
-            ("BACKGROUND", (1, 0), (1, -1), BLANCO),
-            ("BACKGROUND", (3, 0), (3, -1), BLANCO),
-            ("TEXTCOLOR", (0, 0), (0, -1), BLANCO),
-            ("TEXTCOLOR", (2, 0), (2, -1), BLANCO),
-            ("TEXTCOLOR", (1, 0), (1, -1), NEGRO),
-            ("TEXTCOLOR", (3, 0), (3, -1), NEGRO),
-            ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
-            ("FONTNAME", (2, 0), (2, -1), "Helvetica-Bold"),
-            ("FONTNAME", (1, 0), (1, -1), "Helvetica"),
-            ("FONTNAME", (3, 0), (3, -1), "Helvetica"),
-            ("FONTSIZE", (0, 0), (3, -1), 9),
-            ("ALIGN", (0, 0), (3, -1), "CENTER"),
-            ("VALIGN", (0, 0), (3, -1), "MIDDLE"),
-            ("PADDING", (0, 0), (3, -1), 7),
-            ("GRID", (0, 0), (3, -1), 0.5, colors.HexColor("#E2E8F0")),
+
+        # Cálculos basados en el conjunto `indicadores` recibido (activos o en_riesgo)
+        rendimiento_activos = [r for r in indicadores if getattr(r, "promedio_academico", 0) > 0]
+        menos_del_min = sum(1 for r in rendimiento_activos if r.promedio_academico < PROMEDIO_MINIMO)
+        promedio_alto = max((r.promedio_academico for r in rendimiento_activos), default=0.0)
+        menor_promedio = min((r.promedio_academico for r in rendimiento_activos), default=0.0)
+
+        right_table_data = [
+            ["Rendimiento Académico", ""],
+            ["Menos del Min. Requerido", str(menos_del_min)],
+            ["Promedio Alto", f"{promedio_alto:.2f}"],
+            ["Menor promedio registrado", f"{menor_promedio:.2f}"],
+        ]
+
+        left_table = Table(left_table_data, colWidths=[4.0 * cm, 3.0 * cm], repeatRows=0)
+        left_table.setStyle(TableStyle([
+            ("SPAN", (0, 0), (1, 0)),
+            ("BACKGROUND", (0, 0), (1, 0), BLANCO),
+            ("TEXTCOLOR", (0, 0), (1, 0), AZUL),
+            ("FONTNAME", (0, 0), (1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("LINEBELOW", (0, 0), (1, 0), 2, AZUL),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [BLANCO, GRIS_CLARO]),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
+            ("PADDING", (0, 0), (-1, -1), 7),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ]))
-        story.append(tabla_unica)
+
+        right_table = Table(right_table_data, colWidths=[6.5 * cm, 4 * cm], repeatRows=0)
+        right_table.setStyle(TableStyle([
+            ("SPAN", (0, 0), (1, 0)),
+            ("BACKGROUND", (0, 0), (1, 0), BLANCO),
+            ("TEXTCOLOR", (0, 0), (1, 0), AZUL),
+            ("FONTNAME", (0, 0), (1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("LINEBELOW", (0, 0), (1, 0), 2, AZUL),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [BLANCO, GRIS_CLARO]),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
+            ("PADDING", (0, 0), (-1, -1), 7),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ]))
+
+        # Contenedor padre para colocar ambas tablas en la misma fila
+        parent = Table([[left_table, right_table]], colWidths=[7.0 * cm, 10.5 * cm])
+        parent.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            # espacio a la derecha de la tabla izquierda
+            ("RIGHTPADDING", (0, 0), (0, 0), 12),
+            # espacio a la izquierda de la tabla derecha
+            ("LEFTPADDING", (1, 0), (1, 0), 12),
+        ]))
+
+        story.append(parent)
         story.append(Spacer(1, 0.7 * cm))
 
-        story.append(Paragraph("Voluntariado", self.styles["Subtitulo"]))
+        # story.append(Paragraph("Voluntariado", self.styles["Subtitulo"]))
         voluntariado_data = [
-            ["Horas", "Estudiantes"],
-            ["0-14", str(sum(1 for ind in indicadores if 0 <= ind.horas_voluntariado <= 14))],
-            ["15-29", str(sum(1 for ind in indicadores if 15 <= ind.horas_voluntariado <= 29))],
-            ["30-44", str(sum(1 for ind in indicadores if 30 <= ind.horas_voluntariado <= 44))],
-            ["45-60", str(sum(1 for ind in indicadores if 45 <= ind.horas_voluntariado <= 60))],
+            ["Voluntariado", ""],
+            ["Menos de 20h", str(sum(1 for ind in indicadores if 0 <= ind.horas_voluntariado <= 19))],
+            ["De 20h a 39h", str(sum(1 for ind in indicadores if 20 <= ind.horas_voluntariado <= 39))],
+            ["De 40h a 59h", str(sum(1 for ind in indicadores if 40 <= ind.horas_voluntariado <= 59))],
+            ["60h o mas", str(sum(1 for ind in indicadores if ind.horas_voluntariado >= 60))],
         ]
-        voluntariado_table = Table(voluntariado_data, colWidths=[6*cm, 6*cm])
+        voluntariado_table = Table(voluntariado_data, colWidths=[6*cm, 5*cm])
         voluntariado_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), AZUL),
-            ("TEXTCOLOR", (0, 0), (-1, 0), BLANCO),
+            ("SPAN", (0, 0), (1, 0)),
+            ("BACKGROUND", (0, 0), (-1, 0), BLANCO),
+            ("TEXTCOLOR", (0, 0), (-1, 0), AZUL),
             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
             ("FONTSIZE", (0, 0), (-1, -1), 9),
-            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("LINEBELOW", (0, 0), (1, 0), 2, AZUL),
+            ("ALIGN", (0, 0), (-1, -1), "LEFT"),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("PADDING", (0, 0), (-1, -1), 7),
             ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
@@ -434,6 +563,8 @@ class ReportesService:
         ]))
         story.append(voluntariado_table)
         story.append(Spacer(1, 0.7 * cm))
+
+        story.extend(self._hallazgos_clave(indicadores))
 
         # Tabla de todos los estudiantes
         story.append(Paragraph("Detalle por Estudiante", self.styles["Subtitulo"]))

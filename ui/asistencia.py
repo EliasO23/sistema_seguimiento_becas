@@ -77,6 +77,11 @@ class AsistenciaView(ctk.CTkFrame):
             width=140, height=36,
             font=FONTS["body_sm"],
             command=self._on_filtro_mes,
+            border_color=COLORS["border"],
+            button_color=COLORS["primary_light"],
+            button_hover_color=COLORS["primary"],
+            dropdown_fg_color="white",
+            dropdown_hover_color=COLORS["primary_light"],
         )
         self._filtro_mes.set("Todos")
         self._filtro_mes.pack(side="left", padx=(0, 12))
@@ -89,6 +94,11 @@ class AsistenciaView(ctk.CTkFrame):
             width=140, height=36,
             font=FONTS["body_sm"],
             command=self._on_filtro,
+            border_color=COLORS["border"],
+            button_color=COLORS["primary_light"],
+            button_hover_color=COLORS["primary"],
+            dropdown_fg_color="white",
+            dropdown_hover_color=COLORS["primary_light"],
         )
         self._filtro.set("Todos")
         self._filtro.pack(side="left")
@@ -108,7 +118,8 @@ class AsistenciaView(ctk.CTkFrame):
         self._status.configure(text="Cargando asistencia...", text_color=COLORS["text_secondary"])
         self.refresh()
 
-    def refresh(self) -> None:
+    def refresh(self, immediate: bool = False) -> None:
+        self._app.show_loading(immediate=immediate)
         threading.Thread(target=self._load, daemon=True).start()
 
     def _load(self) -> None:
@@ -145,6 +156,8 @@ class AsistenciaView(ctk.CTkFrame):
         except Exception as exc:
             self.after(0, lambda exc=exc: self._status.configure(
                 text=f"Error: {exc}", text_color=COLORS["danger"]))
+        finally:
+            self.after(0, self._app.hide_loading)
 
     def _render(self, rows, total, pct_global) -> None:
         self._all_rows = rows
@@ -251,7 +264,7 @@ class FormularioAsistencia(ctk.CTkToplevel):
         est_opts = [f"{e.id} - {e.nombre_completo}" for e in estudiantes]
 
         def lbl(text):
-            ctk.CTkLabel(form, text=text, font=FONTS["body_sm"],
+            ctk.CTkLabel(form, text=text, font=FONTS["body"],
                          text_color=COLORS["text_secondary"]).pack(anchor="w", pady=(10, 2))
 
         lbl("Estudiante *")
@@ -270,17 +283,23 @@ class FormularioAsistencia(ctk.CTkToplevel):
                     break
 
         lbl("Fecha *")
-        self._fecha = ctk.CTkEntry(form, height=38, font=FONTS["body"])
+        self._fecha = ctk.CTkEntry(form, height=38, font=FONTS["body"], border_color=COLORS["border"])
         self._fecha.insert(0, datetime.now().strftime("%Y-%m-%d"))
         self._fecha.pack(fill="x")
 
         lbl("Estado *")
-        self._estado = ctk.CTkComboBox(form, values=ESTADOS_ASISTENCIA, height=38, font=FONTS["body"])
+        self._estado = ctk.CTkComboBox(form, values=ESTADOS_ASISTENCIA, height=38, font=FONTS["body"], 
+                                       border_color=COLORS["border"],
+                                       button_color=COLORS["primary_light"],
+                                       button_hover_color=COLORS["primary"],
+                                       dropdown_fg_color="white",
+                                       dropdown_hover_color=COLORS["primary_light"],
+                                       )
         self._estado.set("Presente")
         self._estado.pack(fill="x")
 
         lbl("Observación")
-        self._obs = ctk.CTkEntry(form, height=38, font=FONTS["body"])
+        self._obs = ctk.CTkEntry(form, height=38, font=FONTS["body"], border_color=COLORS["border"])
         self._obs.pack(fill="x")
 
         self._error = ctk.CTkLabel(form, text="", font=FONTS["body_sm"],

@@ -85,8 +85,16 @@ class VoluntariadoService:
             "cumplido": horas_acumuladas >= HORAS_VOLUNTARIADO_REQUERIDAS,
         }
 
-    def promedio_horas_global(self) -> float:
+    def promedio_horas_global(self, estudiante_ids: Optional[List[int]] = None) -> float:
         df = self._excel.read_sheet(SHEET_VOLUNTARIADO)
+        if df.empty:
+            return 0.0
+        if estudiante_ids:
+            ids = {str(i) for i in estudiante_ids if i}
+            if "IDEstudiante" in df.columns:
+                df = df[df["IDEstudiante"].astype(str).isin(ids)]
+            else:
+                return 0.0
         if df.empty:
             return 0.0
         horas = pd.to_numeric(df["Horas"], errors="coerce").fillna(0)

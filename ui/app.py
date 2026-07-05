@@ -6,8 +6,9 @@ Orquesta el menú lateral y las vistas de cada sección.
 from __future__ import annotations
 
 import sys
+import time
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 import customtkinter as ctk
 
@@ -63,7 +64,123 @@ class App(ctk.CTk):
         self._views: Dict[str, ctk.CTkFrame] = {}
         self._perfil_window = None
         self._visible = False
+        self._loading_overlay: Optional[ctk.CTkFrame] = None
+        self._loading_progress: Optional[ctk.CTkProgressBar] = None
+        self._loading_show_after_id: Optional[str] = None
+        self._loading_hide_after_id: Optional[str] = None
+        self._loading_started_at: Optional[float] = None
+        self._minimum_loading_visible = 2000
         self._build()
+
+    def _create_loading_overlay(self) -> None:
+        if self._loading_overlay and self._loading_overlay.winfo_exists():
+            return
+
+        overlay = ctk.CTkFrame(self, fg_color=COLORS["bg_sidebar"], corner_radius=0)
+        overlay.place(relx=0, rely=0, relwidth=1, relheight=1)
+        overlay.lower()
+        overlay.bind("<Button-1>", lambda event: "break")
+        overlay.bind("<ButtonRelease-1>", lambda event: "break")
+        overlay.bind("<Key>", lambda event: "break")
+
+        card = ctk.CTkFrame(
+            overlay,
+            fg_color=COLORS["bg_card"],
+            corner_radius=18,
+            border_width=1,
+            border_color=COLORS["border"],
+            width=450,
+            height=240,
+        )
+        card.place(relx=0.5, rely=0.5, anchor="center")
+
+        content = ctk.CTkFrame(card, fg_color="transparent")
+        content.pack(fill="both", expand=True, padx=24, pady=24)
+
+        ctk.CTkLabel(
+            content,
+            text="Cargando información...",
+            font=FONTS["heading_md"],
+            text_color=COLORS["text_primary"],
+        ).pack(pady=(0, 10))
+
+        ctk.CTkLabel(
+            content,
+            text="Espere un momento, por favor",
+            font=FONTS["body"],
+            text_color=COLORS["text_secondary"],
+        ).pack(pady=(0, 18))
+
+        progress = ctk.CTkProgressBar(content, mode="indeterminate", width=220)
+        progress.pack(fill="x", pady=(0, 18))
+
+        self._loading_overlay = overlay
+        self._loading_progress = progress
+        self._loading_title = None
+        self._loading_subtitle = None
+
+    def show_loading(self, immediate: bool = False) -> None:
+        if self._loading_show_after_id and self.after_info(self._loading_show_after_id):
+            try:
+                self.after_cancel(self._loading_show_after_id)
+            except Exception:
+                pass
+            self._loading_show_after_id = None
+
+        if immediate:
+            self._show_loading_overlay()
+            return
+
+        self._loading_show_after_id = self.after(450, self._show_loading_overlay)
+
+    def _show_loading_overlay(self) -> None:
+        self._loading_show_after_id = None
+        self._create_loading_overlay()
+        if self._loading_overlay:
+            self._loading_overlay.place(relx=0, rely=0, relwidth=1, relheight=1)
+            self._loading_overlay.lift()
+        if self._loading_progress:
+            self._loading_progress.start()
+        self._loading_started_at = time.time()
+
+    def _hide_loading_overlay(self) -> None:
+        self._loading_hide_after_id = None
+        if self._loading_progress:
+            try:
+                self._loading_progress.stop()
+            except Exception:
+                pass
+        if self._loading_overlay and self._loading_overlay.winfo_exists():
+            self._loading_overlay.place_forget()
+        self._loading_started_at = None
+
+    def hide_loading(self) -> None:
+        if self._loading_show_after_id and self.after_info(self._loading_show_after_id):
+            try:
+                self.after_cancel(self._loading_show_after_id)
+            except Exception:
+                pass
+            self._loading_show_after_id = None
+
+        if self._loading_hide_after_id and self.after_info(self._loading_hide_after_id):
+            try:
+                self.after_cancel(self._loading_hide_after_id)
+            except Exception:
+                pass
+            self._loading_hide_after_id = None
+
+        if self._loading_overlay and self._loading_overlay.winfo_exists():
+            if self._loading_started_at is None:
+                self._hide_loading_overlay()
+                return
+
+            elapsed_ms = int((time.time() - self._loading_started_at) * 1000)
+            wait_ms = self._minimum_loading_visible - elapsed_ms
+            if wait_ms > 0:
+                self._loading_hide_after_id = self.after(wait_ms, self._hide_loading_overlay)
+                return
+
+        self._hide_loading_overlay()
 
     # ── Servicios ─────────────────────────────────────────────────────────────
 
@@ -133,6 +250,8 @@ class App(ctk.CTk):
         if hasattr(view, "refresh"):
             if key == "dashboard" and not self._visible:
                 view.refresh(on_complete=self._show)
+            elif key == "asistencia":
+                view.refresh(immediate=True)
             else:
                 view.refresh()
 

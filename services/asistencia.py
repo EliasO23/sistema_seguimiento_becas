@@ -203,9 +203,17 @@ class AsistenciaService:
         resumen = df.groupby(["Mes", "Estado"]).size().unstack(fill_value=0)
         return resumen
 
-    def promedio_asistencia_global(self) -> float:
-        """Porcentaje promedio de asistencia de todos los estudiantes."""
+    def promedio_asistencia_global(self, estudiante_ids: Optional[List[int]] = None) -> float:
+        """Porcentaje promedio de asistencia de los estudiantes indicados."""
         df = self._excel.read_sheet(SHEET_ASISTENCIAS)
+        if df.empty:
+            return 0.0
+        if estudiante_ids:
+            ids = {str(i) for i in estudiante_ids if i}
+            if "IDEstudiante" in df.columns:
+                df = df[df["IDEstudiante"].astype(str).isin(ids)]
+            else:
+                return 0.0
         if df.empty:
             return 0.0
         total = len(df)

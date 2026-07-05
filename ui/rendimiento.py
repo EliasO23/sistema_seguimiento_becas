@@ -241,16 +241,17 @@ class RendimientoView(ctk.CTkFrame):
 class FormularioRendimiento(ctk.CTkToplevel):
     """Formulario para crear o editar rendimiento académico."""
 
-    def __init__(self, master, rendimiento: Optional[Rendimiento] = None, on_save=None) -> None:
+    def __init__(self, master, rendimiento: Optional[Rendimiento] = None, on_save=None, estudiante_id: Optional[int] = None) -> None:
         super().__init__(master)
         self.withdraw()
         self._rendimiento = rendimiento
         self._on_save = on_save
         self._is_edit = rendimiento is not None
+        self._preset_id = estudiante_id
         self._fields: dict[str, object] = {}
 
         self.title("Editar Rendimiento" if self._is_edit else "Nuevo Registro de Rendimiento")
-        self.geometry("560x470")
+        self.geometry("580x470")
         self.grab_set()
         self.configure(fg_color=COLORS["bg_main"])
 
@@ -273,7 +274,7 @@ class FormularioRendimiento(ctk.CTkToplevel):
         est_opts = [f"{e.id} - {e.nombre_completo}" for e in estudiantes]
 
         def lbl(text: str) -> None:
-            ctk.CTkLabel(scroll, text=text, font=FONTS["body_sm"], text_color=COLORS["text_secondary"]).pack(anchor="w", pady=(8, 2))
+            ctk.CTkLabel(scroll, text=text, font=FONTS["body"], text_color=COLORS["text_secondary"]).pack(anchor="w", pady=(8, 2))
 
         lbl("Estudiante *")
         self._fields["estudiante"] = AutocompleteEntry(
@@ -284,9 +285,14 @@ class FormularioRendimiento(ctk.CTkToplevel):
             placeholder_text="Escribe el nombre o ID del estudiante",
         )
         self._fields["estudiante"].pack(fill="x")
+        if self._preset_id:
+            for opt in est_opts:
+                if opt.startswith(f"{self._preset_id} -"):
+                    self._fields["estudiante"].set(opt)
+                    break
 
         lbl("Promedio *")
-        self._fields["promedio"] = ctk.CTkEntry(scroll, height=38, font=FONTS["body"])
+        self._fields["promedio"] = ctk.CTkEntry(scroll, height=38, font=FONTS["body"], border_color=COLORS["border"])
         self._fields["promedio"].pack(fill="x")
 
         grid = ctk.CTkFrame(scroll, fg_color="transparent")
@@ -298,28 +304,28 @@ class FormularioRendimiento(ctk.CTkToplevel):
         left.grid(row=0, column=0, padx=(0, 8), sticky="ew")
 
         def lbl_left(text: str) -> None:
-            ctk.CTkLabel(left, text=text, font=FONTS["body_sm"], text_color=COLORS["text_secondary"]).pack(anchor="w", pady=(8, 2))
+            ctk.CTkLabel(left, text=text, font=FONTS["body"], text_color=COLORS["text_secondary"]).pack(anchor="w", pady=(8, 2))
 
         lbl_left("Materias aprobadas")
-        self._fields["aprobadas"] = ctk.CTkEntry(left, height=38, font=FONTS["body"])
+        self._fields["aprobadas"] = ctk.CTkEntry(left, height=38, font=FONTS["body"], border_color=COLORS["border"])
         self._fields["aprobadas"].pack(fill="x")
 
         lbl_left("Materias reprobadas")
-        self._fields["reprobadas"] = ctk.CTkEntry(left, height=38, font=FONTS["body"])
+        self._fields["reprobadas"] = ctk.CTkEntry(left, height=38, font=FONTS["body"], border_color=COLORS["border"])
         self._fields["reprobadas"].pack(fill="x")
 
         right = ctk.CTkFrame(grid, fg_color="transparent")
         right.grid(row=0, column=1, padx=(8, 0), sticky="ew")
 
         def lbl_right(text: str) -> None:
-            ctk.CTkLabel(right, text=text, font=FONTS["body_sm"], text_color=COLORS["text_secondary"]).pack(anchor="w", pady=(8, 2))
+            ctk.CTkLabel(right, text=text, font=FONTS["body"], text_color=COLORS["text_secondary"]).pack(anchor="w", pady=(8, 2))
 
         lbl_right("Materias en riesgo")
-        self._fields["riesgo"] = ctk.CTkEntry(right, height=38, font=FONTS["body"])
+        self._fields["riesgo"] = ctk.CTkEntry(right, height=38, font=FONTS["body"], border_color=COLORS["border"])
         self._fields["riesgo"].pack(fill="x")
 
         lbl_right("Fecha actualización (YYYY-MM-DD)")
-        self._fields["fecha"] = ctk.CTkEntry(right, height=38, font=FONTS["body"])
+        self._fields["fecha"] = ctk.CTkEntry(right, height=38, font=FONTS["body"], border_color=COLORS["border"])
         self._fields["fecha"].pack(fill="x")
 
         self._error = ctk.CTkLabel(scroll, text="", font=FONTS["body_sm"], text_color=COLORS["danger"])
@@ -374,7 +380,13 @@ class FormularioRendimiento(ctk.CTkToplevel):
             aprobadas = int(self._get("aprobadas") or 0)
             reprobadas = int(self._get("reprobadas") or 0)
             riesgo = int(self._get("riesgo") or 0)
-            fecha = self._get("fecha") or datetime.now().strftime("%Y-%m-%d")
+            fecha_text = self._get("fecha") or datetime.now().strftime("%Y-%m-%d")
+
+            try:
+                fecha_dt = datetime.strptime(fecha_text, "%Y-%m-%d")
+            except ValueError:
+                raise ValueError("La fecha debe tener formato YYYY-MM-DD.")
+            fecha = fecha_dt.strftime("%Y-%m-%d")
 
             if not 0 <= promedio <= 10:
                 raise ValueError("El promedio debe estar entre 0 y 10.")

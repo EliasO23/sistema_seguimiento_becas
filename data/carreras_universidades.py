@@ -578,11 +578,11 @@ universidades = {
     ],
 }
 
-if __name__ == "__main__":
-    total_carreras = sum(len(v) for v in universidades.values())
-    print(f"Total de instituciones: {len(universidades)}")
-    print(f"Total de carreras/técnicos listados: {total_carreras}\n")
-    for institucion, carreras in universidades.items():
-        print(f"\n=== {institucion} ===")
-        for c in carreras:
-            print(f"  - {c}")
+# if __name__ == "__main__":
+#     total_carreras = sum(len(v) for v in universidades.values())
+#     print(f"Total de instituciones: {len(universidades)}")
+#     print(f"Total de carreras/técnicos listados: {total_carreras}\n")
+#     for institucion, carreras in universidades.items():
+#         print(f"\n=== {institucion} ===")
+#         for c in carreras:
+#             print(f"  - {c}")

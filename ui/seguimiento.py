@@ -51,11 +51,13 @@ class SeguimientoView(ctk.CTkFrame):
                                   corner_radius=12, border_width=1, border_color=COLORS["border"])
         prox_frame.pack(fill="x", pady=(0, 12))
         ctk.CTkLabel(prox_frame, text="📅 Próximos Seguimientos (próximos 7 días)",
-                     font=FONTS["heading_sm"], text_color=COLORS["primary"]).pack(anchor="w", padx=16, pady=(12, 4))
+                     font=FONTS["heading_md"], text_color=COLORS["primary"]).pack(anchor="w", padx=16, pady=(12, 4))
         self._prox_lbl = ctk.CTkLabel(prox_frame, text="Cargando...",
-                                       font=FONTS["body_sm"],
-                                       text_color=COLORS["text_secondary"])
-        self._prox_lbl.pack(anchor="w", padx=16, pady=(0, 12))
+                                       font=FONTS["body"],
+                                       text_color=COLORS["text_secondary"],
+                                       justify="left",
+                                       anchor="w",)
+        self._prox_lbl.pack(fill="x", padx=20, pady=(0, 12))
 
         # Búsqueda
         self._search = SearchBar(content, placeholder="Buscar seguimiento...",
@@ -213,7 +215,7 @@ class FormularioSeguimiento(ctk.CTkToplevel):
         est_opts = [f"{e.id} - {e.nombre_completo}" for e in self._estudiantes]
 
         def lbl(text):
-            ctk.CTkLabel(scroll, text=text, font=FONTS["body_sm"],
+            ctk.CTkLabel(scroll, text=text, font=FONTS["body"],
                          text_color=COLORS["text_secondary"]).pack(anchor="w", pady=(8, 2))
 
         lbl("Estudiante *")
@@ -232,12 +234,18 @@ class FormularioSeguimiento(ctk.CTkToplevel):
                     break
 
         lbl("Fecha *")
-        self._fecha = ctk.CTkEntry(scroll, height=38, font=FONTS["body"])
+        self._fecha = ctk.CTkEntry(scroll, height=38, font=FONTS["body"], border_color=COLORS["border"])
         self._fecha.insert(0, datetime.now().strftime("%Y-%m-%d"))
         self._fecha.pack(fill="x")
 
         lbl("Tipo *")
-        self._tipo = ctk.CTkComboBox(scroll, values=TIPOS_SEGUIMIENTO, height=38, font=FONTS["body"])
+        self._tipo = ctk.CTkComboBox(scroll, values=TIPOS_SEGUIMIENTO, height=38, font=FONTS["body"], 
+                                     border_color=COLORS["border"],
+                                     button_color=COLORS["primary_light"],
+                                     button_hover_color=COLORS["primary"],
+                                     dropdown_fg_color="white",
+                                     dropdown_hover_color=COLORS["primary_light"],
+                                     )
         self._tipo.pack(fill="x")
 
         lbl("Descripción *")
@@ -250,8 +258,8 @@ class FormularioSeguimiento(ctk.CTkToplevel):
                                        border_color=COLORS["border"], border_width=1)
         self._accion.pack(fill="x")
 
-        lbl("Próximo seguimiento (YYYY-MM-DD)")
-        self._proximo = ctk.CTkEntry(scroll, height=38, font=FONTS["body"])
+        lbl("Próximo seguimiento")
+        self._proximo = ctk.CTkEntry(scroll, height=38, font=FONTS["body"], placeholder_text="AAAA-MM-DD", border_color=COLORS["border"])
         self._proximo.pack(fill="x")
 
         lbl("Observaciones")

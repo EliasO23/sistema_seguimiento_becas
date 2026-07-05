@@ -19,6 +19,49 @@ if TYPE_CHECKING:
     from ui.app import App
 
 
+def _obtener_estudiantes_para_dashboard(estudiantes_svc) -> list[dict]:
+    """Retorna los estudiantes activos como diccionarios para los cálculos del dashboard."""
+    return [estudiante.to_dict() for estudiante in estudiantes_svc.listar_activos()]
+
+
+def _obtener_ids_estudiantes(estudiantes: list[dict]) -> list[int]:
+    """Extrae los IDs de una lista de estudiantes para filtrar métricas."""
+    ids: list[int] = []
+    for estudiante in estudiantes:
+        try:
+            estudiante_id = int(estudiante.get("ID", 0) or 0)
+            if estudiante_id:
+                ids.append(estudiante_id)
+        except (TypeError, ValueError):
+            continue
+    return ids
+
+
+def _calcular_kpis_dashboard(estudiantes_activos: list[dict], services) -> dict:
+    """Calcula los KPIs del dashboard solo con los estudiantes activos."""
+    indicadores = services["indicadores"].calcular_lote(estudiantes_activos)
+    resumen = services["indicadores"].resumen_global(indicadores)
+    top = services["indicadores"].top_estudiantes(indicadores, 10)
+    en_riesgo = services["indicadores"].estudiantes_en_riesgo(indicadores)
+
+    estudiante_ids = _obtener_ids_estudiantes(estudiantes_activos)
+    pct_asi = services["asistencia"].promedio_asistencia_global(estudiante_ids=estudiante_ids)
+    pct_vol = services["voluntariado"].promedio_horas_global(estudiante_ids=estudiante_ids)
+    total_seg = services["seguimiento"].total_seguimientos_global(estudiante_ids=estudiante_ids)
+    prom_aca = services["rendimiento"].promedio_global(estudiante_ids=estudiante_ids)
+
+    return {
+        "indicadores": indicadores,
+        "resumen": resumen,
+        "top": top,
+        "en_riesgo": en_riesgo,
+        "pct_asi": pct_asi,
+        "pct_vol": pct_vol,
+        "total_seg": total_seg,
+        "prom_aca": prom_aca,
+    }
+
+
 class DashboardView(ctk.CTkFrame):
     """Panel principal del sistema."""
 
@@ -71,23 +114,19 @@ class DashboardView(ctk.CTkFrame):
         try:
             svc = self._app.services
             est_stats = svc["estudiantes"].estadisticas_generales()
-            todos_est = svc["estudiantes"].listar_todos()
-
-            indicadores = svc["indicadores"].calcular_lote(
-                [e.to_dict() for e in todos_est[:50]]  # limitar para rendimiento
-            )
-            resumen = svc["indicadores"].resumen_global(indicadores)
-            top = svc["indicadores"].top_estudiantes(indicadores, 5)
-            en_riesgo = svc["indicadores"].estudiantes_en_riesgo(indicadores)
-
-            pct_asi = svc["asistencia"].promedio_asistencia_global()
-            pct_vol = svc["voluntariado"].promedio_horas_global()
-            total_seg = svc["seguimiento"].total_seguimientos_global()
-            prom_aca = svc["rendimiento"].promedio_global()
+            estudiantes_activos = _obtener_estudiantes_para_dashboard(svc["estudiantes"])
+            kpis = _calcular_kpis_dashboard(estudiantes_activos, svc)
 
             self.after(0, lambda: self._render(
-                est_stats, resumen, top, en_riesgo,
-                pct_asi, pct_vol, total_seg, prom_aca, indicadores,
+                est_stats,
+                kpis["resumen"],
+                kpis["top"],
+                kpis["en_riesgo"],
+                kpis["pct_asi"],
+                kpis["pct_vol"],
+                kpis["total_seg"],
+                kpis["prom_aca"],
+                kpis["indicadores"],
             ))
         except Exception as exc:
             self.after(0, lambda exc=exc: self._show_error(str(exc)))
@@ -102,7 +141,7 @@ class DashboardView(ctk.CTkFrame):
         for w in self._kpi_frame.winfo_children():
             w.destroy()
 
-        SectionHeader(self._kpi_frame, "Indicadores Clave").pack(fill="x", pady=(0, 12))
+        # SectionHeader(self._kpi_frame, "Indicadores Clave").pack(fill="x", pady=(0, 12))
 
         cards_data = [
             ("Total Becados", str(est_stats["total"]), "Estudiantes registrados", "👥", COLORS["primary"]),
@@ -159,7 +198,7 @@ class DashboardView(ctk.CTkFrame):
             wedges, texts, autotexts = ax.pie(
                 [bajo, medio, alto],
                 labels=["Bajo", "Medio", "Alto"],
-                colors=["#10B981", "#F59E0B", "#EF4444"],
+                colors=["#3B82F6", "#8FB8FA", "#0952C8"],
                 autopct="%1.0f%%",
                 startangle=90,
                 textprops={"fontsize": 9},
@@ -196,7 +235,7 @@ class DashboardView(ctk.CTkFrame):
         fig, ax = plt.subplots(figsize=(4, 3), facecolor="white")
         ax.bar(
             list(buckets.keys()), list(buckets.values()),
-            color=["#EF4444", "#F59E0B", "#3B82F6", "#10B981"],
+            color=["#8FB8FA", "#052E70", "#3B82F6", "#0952C8"],
             edgecolor="white", linewidth=0.5,
         )
         ax.set_ylabel("Estudiantes", fontsize=8)
@@ -232,7 +271,7 @@ class DashboardView(ctk.CTkFrame):
             ctk.CTkLabel(alertas_frame, text="✅ Sin alertas activas",
                          font=FONTS["body"], text_color=COLORS["success"]).pack(padx=16, pady=16)
         else:
-            for ind in en_riesgo[:8]:
+            for ind in en_riesgo[:10]:
                 row = ctk.CTkFrame(alertas_frame, fg_color=COLORS["bg_main"], corner_radius=6)
                 row.pack(fill="x", padx=12, pady=3)
                 ctk.CTkLabel(row, text=ind.nombre[:28],
@@ -245,7 +284,7 @@ class DashboardView(ctk.CTkFrame):
                                  corner_radius=12, border_width=1, border_color=COLORS["border"])
         top_frame.grid(row=0, column=1, padx=(8, 0), sticky="nsew", pady=(0, 16))
 
-        ctk.CTkLabel(top_frame, text="⭐ Top Estudiantes",
+        ctk.CTkLabel(top_frame, text="Top Estudiantes",
                      font=FONTS["heading_sm"], text_color=COLORS["primary"]).pack(
             anchor="w", padx=16, pady=(12, 8))
 
@@ -253,7 +292,7 @@ class DashboardView(ctk.CTkFrame):
             row = ctk.CTkFrame(top_frame, fg_color=COLORS["bg_main"], corner_radius=6)
             row.pack(fill="x", padx=12, pady=3)
             ctk.CTkLabel(row, text=f"#{rank}",
-                         font=FONTS["heading_sm"],
+                         font=FONTS["heading_md"],
                          text_color=COLORS["primary"]).pack(side="left", padx=10, pady=6)
             ctk.CTkLabel(row, text=ind.nombre[:28],
                          font=FONTS["body_sm"],
@@ -291,7 +330,9 @@ class DashboardView(ctk.CTkFrame):
 
         self._kpi_frame = ctk.CTkFrame(self._scroll, fg_color="transparent")
         self._kpi_frame.pack(fill="x", pady=(0, 16))
-        SectionHeader(self._kpi_frame, "Indicadores Clave").pack(fill="x", pady=(0, 12))
+
+        # SectionHeader(self._kpi_frame, "Indicadores Clave").pack(fill="x", pady=(0, 12))
+
         self._kpi_grid = ctk.CTkFrame(self._kpi_frame, fg_color="transparent")
         self._kpi_grid.pack(fill="x")
         for col in range(4):
@@ -322,6 +363,7 @@ class DashboardView(ctk.CTkFrame):
 
         self._charts_frame = ctk.CTkFrame(self._scroll, fg_color="transparent")
         self._charts_frame.pack(fill="x", pady=(0, 16))
+        
         SectionHeader(self._charts_frame, "Análisis Visual").pack(fill="x", pady=(0, 12))
         chart_container = ctk.CTkFrame(self._charts_frame, fg_color="transparent")
         chart_container.pack(fill="x")
@@ -359,7 +401,7 @@ class DashboardView(ctk.CTkFrame):
         ctk.CTkLabel(
             self._alertas_frame,
             text="🚨 Alertas — Estudiantes en Riesgo",
-            font=FONTS["heading_sm"],
+            font=FONTS["heading_md"],
             text_color=COLORS["danger"],
         ).pack(anchor="w", padx=16, pady=(12, 8))
         self._alert_empty_label = ctk.CTkLabel(
@@ -370,9 +412,9 @@ class DashboardView(ctk.CTkFrame):
         )
         self._alert_empty_label.pack(padx=16, pady=16)
         self._alert_rows = []
-        for _ in range(8):
+        for _ in range(10):
             row = ctk.CTkFrame(self._alertas_frame, fg_color=COLORS["bg_main"], corner_radius=6)
-            name = ctk.CTkLabel(row, text="", font=FONTS["body_sm"], text_color=COLORS["text_primary"])
+            name = ctk.CTkLabel(row, text="", font=FONTS["body"], text_color=COLORS["text_primary"])
             badge_slot = ctk.CTkFrame(row, fg_color="transparent")
             name.pack(side="left", padx=10, pady=6)
             badge_slot.pack(side="right", padx=10, pady=3)
@@ -388,15 +430,15 @@ class DashboardView(ctk.CTkFrame):
         self._top_frame.grid(row=0, column=1, padx=(8, 0), sticky="nsew", pady=(0, 16))
         ctk.CTkLabel(
             self._top_frame,
-            text="⭐ Top Estudiantes",
-            font=FONTS["heading_sm"],
+            text="Top Estudiantes",
+            font=FONTS["heading_md"],
             text_color=COLORS["primary"],
         ).pack(anchor="w", padx=16, pady=(12, 8))
         self._top_rows = []
-        for _ in range(5):
+        for _ in range(10):
             row = ctk.CTkFrame(self._top_frame, fg_color=COLORS["bg_main"], corner_radius=6)
-            rank = ctk.CTkLabel(row, text="", font=FONTS["heading_sm"], text_color=COLORS["primary"])
-            name = ctk.CTkLabel(row, text="", font=FONTS["body_sm"], text_color=COLORS["text_primary"])
+            rank = ctk.CTkLabel(row, text="", font=FONTS["heading_md"], text_color=COLORS["primary"])
+            name = ctk.CTkLabel(row, text="", font=FONTS["body"], text_color=COLORS["text_primary"])
             rank.pack(side="left", padx=10, pady=6)
             name.pack(side="left")
             self._top_rows.append({"row": row, "rank": rank, "name": name})
@@ -430,32 +472,21 @@ class DashboardView(ctk.CTkFrame):
         try:
             svc = self._app.services
             est_stats = svc["estudiantes"].estadisticas_generales()
-            todos_est = svc["estudiantes"].listar_todos()
-
-            indicadores = svc["indicadores"].calcular_lote(
-                [e.to_dict() for e in todos_est[:50]]
-            )
-            resumen = svc["indicadores"].resumen_global(indicadores)
-            top = svc["indicadores"].top_estudiantes(indicadores, 5)
-            en_riesgo = svc["indicadores"].estudiantes_en_riesgo(indicadores)
-
-            pct_asi = svc["asistencia"].promedio_asistencia_global()
-            pct_vol = svc["voluntariado"].promedio_horas_global()
-            total_seg = svc["seguimiento"].total_seguimientos_global()
-            prom_aca = svc["rendimiento"].promedio_global()
+            estudiantes_activos = _obtener_estudiantes_para_dashboard(svc["estudiantes"])
+            kpis = _calcular_kpis_dashboard(estudiantes_activos, svc)
 
             self.after(
                 0,
                 lambda: self._render(
                     est_stats,
-                    resumen,
-                    top,
-                    en_riesgo,
-                    pct_asi,
-                    pct_vol,
-                    total_seg,
-                    prom_aca,
-                    indicadores,
+                    kpis["resumen"],
+                    kpis["top"],
+                    kpis["en_riesgo"],
+                    kpis["pct_asi"],
+                    kpis["pct_vol"],
+                    kpis["total_seg"],
+                    kpis["prom_aca"],
+                    kpis["indicadores"],
                 ),
             )
         except Exception as exc:
@@ -486,7 +517,7 @@ class DashboardView(ctk.CTkFrame):
             self._chart_riesgo_ax.pie(
                 [bajo, medio, alto],
                 labels=["Bajo", "Medio", "Alto"],
-                colors=["#10B981", "#F59E0B", "#EF4444"],
+                colors=["#8FB8FA", "#3B82F6", "#0B64F4"],
                 autopct="%1.0f%%",
                 startangle=90,
                 textprops={"fontsize": 9},
@@ -509,7 +540,7 @@ class DashboardView(ctk.CTkFrame):
         self._chart_asistencia_ax.bar(
             list(buckets.keys()),
             list(buckets.values()),
-            color=["#EF4444", "#F59E0B", "#3B82F6", "#10B981"],
+            color=["#0952C8", "#052E70", "#3B82F6", "#8FB8FA"],
             edgecolor="white",
             linewidth=0.5,
         )
@@ -548,7 +579,7 @@ class DashboardView(ctk.CTkFrame):
                 indicador = top[idx]
                 if not entry["row"].winfo_manager():
                     entry["row"].pack(fill="x", padx=12, pady=3)
-                entry["rank"].configure(text=f"#{idx + 1}")
+                entry["rank"].configure(text=f"{idx + 1}")
                 entry["name"].configure(text=indicador.nombre[:28])
             else:
                 entry["row"].pack_forget()

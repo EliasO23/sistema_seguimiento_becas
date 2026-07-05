@@ -121,6 +121,14 @@ class SeguimientoService:
         limite = hoy + timedelta(days=7)
         return df[(df["ProximoSeguimiento"] >= hoy) & (df["ProximoSeguimiento"] <= limite)]
 
-    def total_seguimientos_global(self) -> int:
+    def total_seguimientos_global(self, estudiante_ids: Optional[List[int]] = None) -> int:
         df = self._excel.read_sheet(SHEET_SEGUIMIENTOS)
+        if df.empty:
+            return 0
+        if estudiante_ids:
+            ids = {str(i) for i in estudiante_ids if i}
+            if "IDEstudiante" in df.columns:
+                df = df[df["IDEstudiante"].astype(str).isin(ids)]
+            else:
+                return 0
         return len(df)

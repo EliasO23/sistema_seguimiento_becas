@@ -183,31 +183,68 @@ class ReportesView(ctk.CTkFrame):
         self._run_async(self._do_reporte_general, "Generando reporte general...")
 
     def _do_reporte_general(self) -> str:
-        svc = self._app.services
-        activos = svc["estudiantes"].listar_activos()
-        indicadores = svc["indicadores"].calcular_lote(
-            [e.to_dict() for e in activos]
-        )
-        resumen = svc["indicadores"].resumen_global(indicadores)
-        dest = svc["reportes"].reporte_general(indicadores, resumen)
-        return f"✅ Reporte general guardado: {dest.name}"
+        try:
+            svc = self._app.services
+            todos = svc["estudiantes"].listar_todos()
+            activos = svc["estudiantes"].listar_activos()
+            indicadores = svc["indicadores"].calcular_lote(
+                [e.to_dict() for e in activos]
+            )
+            resumen = svc["indicadores"].resumen_global(indicadores)
+            estudiante_ids = [int(e.id) for e in activos if getattr(e, "id", None)]
+            asistencia_promedio = svc["asistencia"].promedio_asistencia_global(estudiante_ids=estudiante_ids)
+            promedio_academico = svc["rendimiento"].promedio_global(estudiante_ids=estudiante_ids)
+            dest = svc["reportes"].reporte_general(
+                indicadores,
+                resumen,
+                total_estudiantes=len(todos),
+                activos_count=len(activos),
+                promedio_academico_global=promedio_academico,
+                asistencia_promedio_global=asistencia_promedio,
+            )
+            return f"✅ Reporte general guardado: {dest.name}"
+        except Exception as exc:
+            from utils.logger import logger
+            logger.exception("Error generando reporte general: %s", exc)
+            return f"❌ Error generando reporte general: {exc}"
 
     def _generar_reporte_riesgo(self) -> None:
         self._run_async(self._do_reporte_riesgo, "Generando reporte de riesgo...")
 
     def _do_reporte_riesgo(self) -> str:
-        svc = self._app.services
-        activos = svc["estudiantes"].listar_activos()
-        indicadores = svc["indicadores"].calcular_lote(
-            [e.to_dict() for e in activos]
-        )
-        en_riesgo = svc["indicadores"].estudiantes_en_riesgo(indicadores)
-        resumen = svc["indicadores"].resumen_global(en_riesgo) if en_riesgo else {}
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        dest = svc["reportes"].reporte_general(
-            en_riesgo, resumen, filename=f"reporte_riesgo_{ts}.pdf"
-        )
-        return f"✅ Reporte de riesgo guardado: {dest.name}  ({len(en_riesgo)} estudiantes)"
+        try:
+            svc = self._app.services
+            todos = svc["estudiantes"].listar_todos()
+            activos = svc["estudiantes"].listar_activos()
+            indicadores = svc["indicadores"].calcular_lote(
+                [e.to_dict() for e in activos]
+            )
+            en_riesgo = svc["indicadores"].estudiantes_en_riesgo(indicadores)
+            resumen = svc["indicadores"].resumen_global(en_riesgo) if en_riesgo else {}
+            estudiante_ids_en_riesgo = [int(i.estudiante_id) for i in en_riesgo] if en_riesgo else []
+            asistencia_promedio = (
+                svc["asistencia"].promedio_asistencia_global(estudiante_ids=estudiante_ids_en_riesgo)
+                if estudiante_ids_en_riesgo else 0.0
+            )
+            promedio_academico = (
+                svc["rendimiento"].promedio_global(estudiante_ids=estudiante_ids_en_riesgo)
+                if estudiante_ids_en_riesgo else 0.0
+            )
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            dest = svc["reportes"].reporte_general(
+                en_riesgo,
+                resumen,
+                filename=f"reporte_riesgo_{ts}.pdf",
+                total_estudiantes=len(todos),
+                activos_count=len(activos),
+                promedio_academico_global=promedio_academico,
+                asistencia_promedio_global=asistencia_promedio,
+            )
+            return f"✅ Reporte de riesgo guardado: {dest.name}  ({len(en_riesgo)} estudiantes)"
+        except Exception as exc:
+            from utils.logger import logger
+            logger.exception("Error generando reporte de riesgo: %s", exc)
+            return f"❌ Error generando reporte de riesgo: {exc}"
 
     def _exportar_excel(self) -> None:
         self._run_async(self._do_exportar_excel, "Exportando Excel...")

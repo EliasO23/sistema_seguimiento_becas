@@ -66,7 +66,7 @@ COLS_SEGUIMIENTOS = [
 ]
 
 COLS_RENDIMIENTO = [
-    "ID", "IDEstudiante", "Promedio", "MateriasAprobadas",
+    "ID", "IDEstudiante", "Ciclo", "Promedio", "MateriasAprobadas",
     "MateriasReprobadas", "MateriasEnRiesgo", "FechaActualizacion",
 ]
 
@@ -96,6 +96,7 @@ COLORS: Dict[str, str] = {
     "primary_light": "#DBEAFE",
     # Fondos
     "bg_main": "#F8FAFC",
+    "bg_line_table": "#F3F6F9",
     "bg_card": "#FFFFFF",
     "bg_sidebar": "#1E293B",
     "bg_sidebar_hover": "#334155",
@@ -124,6 +125,7 @@ FONTS: Dict[str, Any] = {
     "heading_lg": ("Segoe UI", 20, "bold"),
     "heading_md": ("Segoe UI", 16, "bold"),
     "heading_sm": ("Segoe UI", 13, "bold"),
+    "heading": ("Segoe UI", 13),
     "body": ("Segoe UI", 12),
     "body_sm": ("Segoe UI", 11),
     "caption": ("Segoe UI", 10),

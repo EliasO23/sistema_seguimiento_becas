@@ -17,6 +17,7 @@ from utils.logger import logger
 class Rendimiento:
     id: Optional[int] = None
     id_estudiante: int = 0
+    ciclo: str = ""
     promedio: float = 0.0
     materias_aprobadas: int = 0
     materias_reprobadas: int = 0
@@ -27,6 +28,7 @@ class Rendimiento:
         return {
             "ID": self.id,
             "IDEstudiante": self.id_estudiante,
+            "Ciclo": self.ciclo,
             "Promedio": self.promedio,
             "MateriasAprobadas": self.materias_aprobadas,
             "MateriasReprobadas": self.materias_reprobadas,
@@ -39,6 +41,7 @@ class Rendimiento:
         return cls(
             id=int(d["ID"]) if d.get("ID") else None,
             id_estudiante=int(d.get("IDEstudiante", 0) or 0),
+            ciclo=str(d.get("Ciclo", "") or ""),
             promedio=float(d.get("Promedio", 0) or 0),
             materias_aprobadas=int(d.get("MateriasAprobadas", 0) or 0),
             materias_reprobadas=int(d.get("MateriasReprobadas", 0) or 0),
@@ -109,8 +112,16 @@ class RendimientoService:
             "fecha_actualizacion": r.fecha_actualizacion,
         }
 
-    def promedio_global(self) -> float:
+    def promedio_global(self, estudiante_ids: Optional[List[int]] = None) -> float:
         df = self._excel.read_sheet(SHEET_RENDIMIENTO)
+        if df.empty:
+            return 0.0
+        if estudiante_ids:
+            ids = {str(i) for i in estudiante_ids if i}
+            if "IDEstudiante" in df.columns:
+                df = df[df["IDEstudiante"].astype(str).isin(ids)]
+            else:
+                return 0.0
         if df.empty:
             return 0.0
         promedios = pd.to_numeric(df["Promedio"], errors="coerce").dropna()
