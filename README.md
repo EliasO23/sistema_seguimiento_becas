@@ -210,26 +210,60 @@ Cada hoja sigue un esquema definido en config.py y es gestionada por ExcelManage
 
 ### Pasos
 
-#### 1. Abrir el proyecto
+#### 1. Clonar o descomprimir el proyecto
+
+Clona el repositorio:
+
+```bash
+git clone https://github.com/EliasO23/sistema_seguimiento_becas.git
+```
+
+O bien, descomprime el archivo ZIP del proyecto.
+
+#### 2. Abrir la carpeta del proyecto
 
 ```powershell
 cd <ruta-del-proyecto>
 ```
 
-#### 2. Crear entorno virtual (recomendado)
+#### 3. Crear entorno virtual
+
+Abra una terminal de **PowerShell** y ejecute:
 
 ```powershell
 python -m venv .venv
-.venv\Scripts\activate
+```
+## 4. Activar el entorno virtual
+
+```powershell
+.\.venv\Scripts\Activate.ps1
 ```
 
-#### 3. Instalar dependencias
+> **Nota:** Si aparece el siguiente mensaje:
+>
+> ```text
+> File ...\Activate.ps1 cannot be loaded because running scripts is disabled on this system.
+> ```
+>
+> Ejecute primero el siguiente comando en la misma ventana de PowerShell:
+>
+> ```powershell
+> Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+> ```
+>
+> Si PowerShell solicita confirmación, escriba **A** (o **S**, según el idioma del sistema) y presione **Enter**. Luego vuelva a ejecutar:
+>
+> ```powershell
+> .\.venv\Scripts\Activate.ps1
+> ```
+
+#### 5. Instalar dependencias
 
 ```powershell
 pip install -r requirements.txt
 ```
 
-#### 4. Ejecutar la aplicación
+#### 6. Ejecutar la aplicación
 
 ```powershell
 python main.py
